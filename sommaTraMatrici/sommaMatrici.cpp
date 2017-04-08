@@ -42,7 +42,6 @@ int main(int argc, char *argv[])
     double start = omp_get_wtime();
     omp_set_num_threads(nThreads);
 
-    printf("sono qui\n");
 
 #if TYPE==0
 #pragma omp parallel for
@@ -54,8 +53,6 @@ int main(int argc, char *argv[])
             c_parallel[i][j] = a[i][j] + b[i][j];
         }
     }
-
-    printf("sono qui\n");
 
 #endif
 #if TYPE==1
@@ -133,10 +130,10 @@ int main(int argc, char *argv[])
 
 
     for (int i = 0; i < nRows; ++i) {
-        delete a[i];
-        delete b[i];
-        delete c_serial[i];
-        delete c_parallel[i];
+        delete [] a[i];
+        delete [] b[i];
+        delete [] c_serial[i];
+        delete [] c_parallel[i];
 
     }
 
