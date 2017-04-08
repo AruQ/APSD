@@ -8,13 +8,22 @@ using namespace std;
 
 bool checkResults (int ** a, int **b,int nRows, int nColumns);
 
+void printTime (double& start)
+{
+
+    double end = omp_get_wtime();
+    printf("%.16g\n", end-start);
+    start = omp_get_wtime();
+}
+
 int main(int argc, char *argv[])
 {
 
-    assert(argc>=3);
+    assert(argc>=4);
     int nRows = atoi(argv[1]);
     int nColumns = atoi(argv[2]);
-    int nThreads = atoi(argv[3]);
+    int nThreadsMin = atoi(argv[3]);
+    int nThreadsMax = atoi(argv[4]);
 
 
     int** a = new int* [nRows];
@@ -40,78 +49,92 @@ int main(int argc, char *argv[])
 
 
     double start = omp_get_wtime();
-    omp_set_num_threads(nThreads);
 
 
-#if TYPE==0
+    for (int n = nThreadsMin; n<=nThreadsMax; n++)
+    {
+        omp_set_num_threads(n);
+
+        printf("Numero threads: %d\n", n);
+
+
+
+        //#if TYPE==0
 #pragma omp parallel for
 
-    for(int i=0; i<nRows; i++)
-    {
-        for(int j=0; j<nColumns; j++)
+        for(int i=0; i<nRows; i++)
         {
-            c_parallel[i][j] = a[i][j] + b[i][j];
+            for(int j=0; j<nColumns; j++)
+            {
+                c_parallel[i][j] = a[i][j] + b[i][j];
+            }
         }
-    }
 
-#endif
-#if TYPE==1
+
+
+
+        printTime(start);
+        //#endif
+        //#if TYPE==1
 #pragma omp parallel for schedule(dynamic,1000) collapse(2)
-    for(int i=0; i<nRows; i++){
-        for(int j=0; j<nColumns; j++) {
-            c_parallel[i][j] = a[i][j] + b[i][j];
+        for(int i=0; i<nRows; i++){
+            for(int j=0; j<nColumns; j++) {
+                c_parallel[i][j] = a[i][j] + b[i][j];
+            }
+
         }
 
-    }
+        printTime(start);
+        //#endif
 
-
-#endif
-
-#if TYPE==2
+        //#if TYPE==2
 #pragma omp parallel for schedule(static,1000) collapse(2)
-    for(int i=0; i<nRows; i++){
-        for(int j=0; j<nColumns; j++) {
-            c_parallel[i][j] = a[i][j] + b[i][j];
+        for(int i=0; i<nRows; i++){
+            for(int j=0; j<nColumns; j++) {
+                c_parallel[i][j] = a[i][j] + b[i][j];
+            }
+
         }
 
-    }
+        printTime(start);
+        //#endif
 
-
-#endif
-
-    int x, y;
-#if TYPE==3
+        int x, y;
+        //#if TYPE==3
 #pragma omp parallel for private (x,y)
-    for(int i=0; i<nRows*nColumns; i++){
-        x = i/nColumns;
-        y= i%nColumns;
-        c_parallel [x][y] = a[x][y] + b[x][y];
+        for(int i=0; i<nRows*nColumns; i++){
+            x = i/nColumns;
+            y= i%nColumns;
+            c_parallel [x][y] = a[x][y] + b[x][y];
 
 
-    }
+        }
 
 
-#endif
+        //#endif
+        printTime(start);
 
-#if TYPE==4
+        //#if TYPE==4
 #pragma omp parallel for schedule(static,1000) private (x,y)
-    for(int i=0; i<nRows*nColumns; i++){
-        x = i/nColumns;
-        y= i%nColumns;
-        c_parallel [x][y] = a[x][y] + b[x][y];
+        for(int i=0; i<nRows*nColumns; i++){
+            x = i/nColumns;
+            y= i%nColumns;
+            c_parallel [x][y] = a[x][y] + b[x][y];
 
 
+        }
+
+
+        //#endif
+
+        printTime(start);
     }
+    //    double end = omp_get_wtime();
+    //    printf("Parallel \nTIME: %.16g\n", end-start);
 
+    printf("Serial\n");
 
-#endif
-
-    double end = omp_get_wtime();
-    printf("Parallel \nTIME: %.16g\n", end-start);
-
-
-
-    start = omp_get_wtime();
+    //    start = omp_get_wtime();
 
     for (int i = 0; i < nRows; ++i) {
         for (int j = 0; j < nColumns; ++j) {
@@ -119,8 +142,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    end = omp_get_wtime();
-    printf("Serial \nTIME: %.16g\n", end-start);
+    //    end = omp_get_wtime();
+    printTime(start);
+    //    printf("Serial \nTIME: %.16g\n", end-start);
     if (checkResults(c_parallel, c_serial, nRows, nColumns))
 
         printf("il risultato è corretto \n");
