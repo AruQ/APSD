@@ -33,7 +33,7 @@ void printTime (double& start, int i, int j, double ** time, int ** a, int **b,c
         time [i][j] = end-start;
     else
         time [i][j] = -1;
-//    printf("%.16g\n", end-start);
+    cerr<< end-start << endl;
     start = omp_get_wtime();
 }
 

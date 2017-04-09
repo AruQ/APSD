@@ -1,0 +1,6 @@
+parallel for; 56.61;  52.7;  40.73;  47.74;  
+collapse (dynamic 1000); 91.28;  171.2;  107.2;  105;  
+collapse (static 1000); 93.24;  89.05;  82.69;  86.85;  
+Linearizzato; 99.82;  56.19;  39.95;  39.41;  
+Linearizzato (static 1000); 98.91;  153;  106.9;  67.31;  
+seriale; 4.942;  0;  0;  3.953e-319;  
