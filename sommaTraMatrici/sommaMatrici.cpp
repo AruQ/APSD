@@ -181,10 +181,15 @@ int main(int argc, char *argv[])
 
     }
 
+     for (int n = 0; n <= nThreadsMax-nThreadsMin; ++n) {
+         delete [] time [n];
+     }
+
     delete [] a;
     delete [] b;
     delete [] c_serial;
     delete [] c_parallel;
+    delete [] time;
 
 
 
