@@ -9,8 +9,8 @@ using namespace std;
 #define TYPE 0
 
 
-const int nTypes = 3;
-string types [nTypes] = {"parallel for occurences", "parallel for found atomic", "seriale"};
+const int nTypes = 5;
+string types [nTypes] = {"parallel for occurences", "parallel for found atomic","reduction","parallel for occurences atomic", "seriale"};
 
 int computeSerial(int * a, int nElements, int toFind) {
     int occurences = 0;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 
     int* a = new int [nElements];
     for (int i = 0; i < nElements; i++) {
-        a[i] = i;
+        a[i] = 1;
     }
 
     double start = omp_get_wtime();
@@ -100,12 +100,41 @@ int main(int argc, char *argv[]) {
         bool found = false;
 #pragma omp parallel for
         for (int i = 0; i < nElements; i++) {
-            //            if (a[i] == toFind) {
-#pragma omp atomic 
-            found++;
-            //            }
+            if (!found && a[i] == toFind) {
+#pragma omp atomic
+                found++;
+            }
         }
         printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, found, true);
+
+
+        occurences = 0;
+#pragma omp parallel for reduction (+:occurences)
+        for (int i = 0; i < nElements; i++)
+            if (a[i] == toFind)
+                occurences++;
+
+
+        printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, occurences, false);
+
+        occurences = 0;
+#pragma omp parallel
+        {
+            int id = omp_get_thread_num();
+#pragma omp  for
+            for (int i = 0; i < nElements; i++) {
+                if (a[i] == toFind)
+#pragma omp atomic
+                    occurences++;
+            }
+
+        }
+        printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, occurences, false);
+
+
+
+
+
         indexTypes = 0;
     }
 
