@@ -6,22 +6,23 @@ using namespace std;
 
 class GameOfLife {
 private:
-    bool** next;
-    bool** curr;
+    bool ** matrix [2];
+
     int nRows;
     int nCol;
 
 public:
 
     GameOfLife(int nRows, int nCol) : nRows(nRows), nCol(nCol) {
-        next = new bool*[nRows];
-        curr = new bool*[nRows];
+        matrix[0] = new bool*[nRows];
+        matrix[1] = new bool*[nRows];
+
         for (int i = 0; i < nRows; i++) {
-            curr[i] = new bool[nCol];
-            next[i] = new bool[nCol];
+            matrix[0][i] = new bool[nCol];
+            matrix[1][i] = new bool[nCol];
             for (int j = 0; j < nCol; j++) {
-                curr[i][j] = 0;
-                next[i][j] = 0;
+                matrix[0][i][j] = 0;
+                matrix[1][i][j] = 0;
 
             }
 
@@ -31,24 +32,24 @@ public:
     void print() {
         for (int i = 0; i < nRows; i++) {
             for (int j = 0; j < nCol; j++)
-                cout << curr[i][j] << "  ";
+                cout << matrix[0][i][j] << "  ";
             cout << endl;
         }
     }
 
     void init(int i, int j, bool value) {
         assert(i < nRows && j < nCol);
-        curr[i][j] = value;
+        matrix[0][i][j] = value;
     }
 
     void set(int i, int j, bool value) {
         assert(i < nRows && j < nCol);
-        next[i][j] = value;
+        matrix[1][i][j] = value;
     }
 
     bool get(int i, int j) {
         assert(i < nRows && j < nCol);
-        return curr[i][j];
+        return matrix[0][i][j];
     }
 
     int sumNeighborhood(int i, int j) {
@@ -57,7 +58,7 @@ public:
             for (int z = -1; z <= 1; z++) {
                 if (k == 0 && z == 0)
                     continue;
-                sum += curr[getToroidalX(i+k,nRows)][getToroidalX(j+z,nCol)];
+                sum += matrix[0][getToroidalX(i+k,nRows)][getToroidalX(j+z,nCol)];
             }
         return sum;
     }
@@ -65,18 +66,18 @@ public:
     void swap() {
         for (int i = 0; i < nRows; i++) {
             for (int j = 0; j < nCol; j++) {
-                curr[i][j] = next[i][j];
+                matrix[0][i][j] = matrix[1][i][j];
             }
         }
     }
 
     ~GameOfLife() {
         for (int i = 0; i < nRows; i++) {
-            delete next[i];
-            delete curr[i];
+            delete matrix[0][i];
+            delete matrix[1][i];
         }
-        delete [] next;
-        delete [] curr;
+        delete [] matrix[0];
+        delete [] matrix[1];
     }
 
     void run(int steps) {
