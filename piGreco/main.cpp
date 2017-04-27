@@ -89,6 +89,7 @@ int main (int argc, char *argv[])
 
         //*****************************************************************************//
         //PARALLEL FOR
+        pi=0.0;
 
         for(int k=0; k<nThreads; k++)
         {
@@ -115,6 +116,7 @@ int main (int argc, char *argv[])
 
         //*****************************************************************************//
         //DYNAMIC
+        pi=0.0;
 
         for(int k=0; k<nThreads; k++)
         {
@@ -141,6 +143,7 @@ int main (int argc, char *argv[])
 
         //*****************************************************************************//
         //STATIC
+        pi=0.0;
 
         for(int k=0; k<nThreads; k++)
         {
@@ -168,6 +171,7 @@ int main (int argc, char *argv[])
         //*****************************************************************************//
         //CRITICAL
 
+        pi=0.0;
         nThreads= n;
 #pragma omp parallel
         {
@@ -220,7 +224,9 @@ int main (int argc, char *argv[])
         //*****************************************************************************//
         //PADDING
 
-       double sum_padding [nThreads][PAD] = {0.0};
+        pi=0.0;
+
+        double sum_padding [nThreads][PAD] = {0.0};
 #pragma omp parallel
         {
             int id= omp_get_thread_num();
