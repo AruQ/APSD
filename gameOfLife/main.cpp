@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cassert>
 #include "gameOfLife.h"
+
 using namespace std;
 
 
@@ -14,14 +15,19 @@ int main(int argc, char ** argv) {
     int nRow = atoi(argv[1]);
     int nCol = atoi(argv[2]);
     int steps = atoi(argv[3]);
-    GameOfLife g(nRow, nCol);
+    Image i (nRow, nCol);
+    GameOfLife g(nRow, nCol,i);
+
+
     g.init(0, 2, 1);
     g.init(1, 0, 1);
     g.init(1, 2, 1);
     g.init(2, 1, 1);
     g.init(2, 2, 1);
 
+
     g.run(steps);
+
 
     //    g.print();
     return 0;

@@ -4,6 +4,7 @@
 #include<cassert>
 #include <string>
 #include<iostream>
+#include <functional>
 
 using namespace std;
 #define TYPE 0
@@ -22,32 +23,26 @@ int computeSerial(int * a, int nElements, int toFind) {
 
 }
 
-bool checkOccurencesResults(int * a, int nElements, int toFind, int occurences) {
-    return occurences == computeSerial(a, nElements, toFind);
-}
+auto checkFoundResultOccurences = [](int * a, int nElements, int toFind, int occurrences)->bool  {
+    return computeSerial(a, nElements, toFind) == occurrences;
+};
 
-bool checkFoundResults(int * a, int nElements, int toFind, bool found) {
-    if (found)
-        return computeSerial(a, nElements, toFind) > 0;
-    else
-        return computeSerial(a, nElements, toFind) == 0;
-}
+auto checkFoundResultFound = [](int * a, int nElements, int toFind, bool found )->bool  {
+    return (computeSerial(a, nElements, toFind) == 0 && !found) || (computeSerial(a, nElements, toFind) > 0 && found);
+};
 
-void printTime(double& start, int i, int j, double ** time, int * a, int nElements, int toFind, int occurences, bool checkFound) {
+
+void printTime(double& start, int i, int j, double ** time, auto function) {
 
     double end = omp_get_wtime();
-    if (!checkFound) {
-        if (checkOccurencesResults(a, nElements, toFind, occurences))
-            time [i][j] = end - start;
-        else
-            time [i][j] = -1;
-    } else {
-        if (checkFoundResults(a, nElements, toFind, occurences)) {
-            time [i][j] = end - start;
-        } else
-            time [i][j] = -1;
+    if (function())
+    {
+        time [i][j] = end - start;
     }
-
+    else
+    {
+        time [i][j] = -1;
+    }
     start = omp_get_wtime();
 }
 
@@ -73,7 +68,8 @@ int main(int argc, char *argv[]) {
 
     int occurences;
     occurences = computeSerial(a, nElements, toFind);
-    printTime(start, nTypes - 1, 0, time, a, nElements, toFind, occurences, false);
+    //    printTime(start, nTypes - 1, 0, time, a, nElements, toFind, occurences, false);
+    printTime(start, nTypes - 1, 0, time,std::bind (checkFoundResultOccurences,a,nElements,toFind,occurences));
 
 
     int indexTypes = 0;
@@ -95,7 +91,7 @@ int main(int argc, char *argv[]) {
                 occurences += arrayOccurences[i];
 
         }
-        printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, occurences, false);
+        printTime(start, indexTypes++, n - nThreadsMin, time,std::bind (checkFoundResultOccurences,a,nElements,toFind,occurences));
 
         bool found = false;
 #pragma omp parallel for
@@ -105,7 +101,7 @@ int main(int argc, char *argv[]) {
                 found++;
             }
         }
-        printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, found, true);
+        printTime(start, indexTypes++, n - nThreadsMin, time, std::bind (checkFoundResultFound,a,nElements,toFind,found));
 
 
         occurences = 0;
@@ -115,7 +111,7 @@ int main(int argc, char *argv[]) {
                 occurences++;
 
 
-        printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, occurences, false);
+        printTime(start, indexTypes++, n - nThreadsMin, time,std::bind (checkFoundResultOccurences,a,nElements,toFind,occurences));
 
         occurences = 0;
 #pragma omp parallel
@@ -129,11 +125,7 @@ int main(int argc, char *argv[]) {
             }
 
         }
-        printTime(start, indexTypes++, n - nThreadsMin, time, a, nElements, toFind, occurences, false);
-
-
-
-
+        printTime(start, indexTypes++, n - nThreadsMin, time, std::bind (checkFoundResultOccurences,a,nElements,toFind,occurences));
 
         indexTypes = 0;
     }
