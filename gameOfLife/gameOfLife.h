@@ -2,21 +2,18 @@
 #include <unistd.h>
 using namespace std;
 
-#include "Image.h"
-
 #define getToroidalX(index, size) (   (index)<0?((size)+(index)):( (index)>((size)-1)?((index)-(size)):(index) )   )
 
 class GameOfLife {
 private:
     bool ** matrix [2];
 
-    Image i;
     int nRows;
     int nCol;
 
 public:
 
-    GameOfLife(int nRows, int nCol, Image i) : nRows(nRows), nCol(nCol),i(i) {
+    GameOfLife(int nRows, int nCol) : nRows(nRows), nCol(nCol) {
         matrix[0] = new bool*[nRows];
         matrix[1] = new bool*[nRows];
 
@@ -33,8 +30,6 @@ public:
     }
 
     void print() {
-         i.color(matrix[0]);
-//         i.show(0);
         for (int i = 0; i < nRows; i++) {
             for (int j = 0; j < nCol; j++)
                 cout << matrix[0][i][j] << "  ";
@@ -55,11 +50,6 @@ public:
     bool get(int i, int j) {
         assert(i < nRows && j < nCol);
         return matrix[0][i][j];
-    }
-
-    bool ** getMatrix ()
-    {
-        return matrix[0];
     }
 
     int sumNeighborhood(int i, int j) {
@@ -91,8 +81,6 @@ public:
     }
 
     void run(int steps) {
-        i.color(matrix[0]);
-//        i.show(0);
         for (int s = 0; s < steps; s++) {
 #pragma omp for
             for (int i = 0; i < nRows; i++) {
@@ -108,11 +96,6 @@ public:
             //usleep(30000);
             //cout<<"-------------------------"<<endl;
         }
-
-        i.color(matrix[0]);
-//        i.show(1);
-
-
 
 
     }
