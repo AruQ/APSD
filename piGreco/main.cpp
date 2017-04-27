@@ -37,7 +37,7 @@ int main (int argc, char *argv[])
     }
     pi= step * sum;
 
-/*[parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 1
+    /*[parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 1
 Time: 4.377777163004794
 PI: 3.141592655589971
 */
@@ -128,44 +128,46 @@ PI: 3031995515.266843
 #elif OMP==4
     long long numIn = 0;
     double y;
-   #pragma omp parallel private(x, y) reduction(+:numIn)
-   {
-       #pragma omp for
-       for (i = 0; i <= num_steps; i++) {
-           x = (double)rand()/RAND_MAX;
-           y = (double)rand()/RAND_MAX;
+#pragma omp parallel private(x, y) reduction(+:numIn)
+    {
+        unsigned int id = omp_get_thread_num();
 
-           if (x*x + y*y <= 1)
-               numIn++;
-       }
-   }
-   pi = 4.0 *((double)numIn/(double)num_steps);
-   printf("pi %f\n", pi);
+#pragma omp for
+        for (i = 0; i <= num_steps; i++) {
+            x = (double)rand_r(&id)/RAND_MAX;
+            y = (double)rand_r(&id)/RAND_MAX;
+
+            if (x*x + y*y <= 1)
+                numIn++;
+        }
+    }
+    pi = 4.0 *((double)numIn/(double)num_steps);
+    printf("pi %f\n", pi);
 
 
 
 #elif OMP==5
     double sum=0.0;
-    #pragma omp parallel for private(x) reduction(+:sum)
+#pragma omp parallel for private(x) reduction(+:sum)
     for (i = 0; i < num_steps; i++)
     {
-      x = (i + 0.5)* step;
-      sum += 4.0/(1.0 + x*x);
+        x = (i + 0.5)* step;
+        sum += 4.0/(1.0 + x*x);
     }
     pi = sum / num_steps;
 
-//    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 4
-//    Time: 1.210655486000178
-//    PI: 3.141592653589821
-//    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 3
-//    Time: 1.542759682999531
-//    PI: 3.141592653589961
-//    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 2
-//    Time: 2.201832018999994
-//    PI: 3.141592653589901
-//    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 1
-//    Time: 4.231976058001237
-//    PI: 3.141592653589971
+    //    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 4
+    //    Time: 1.210655486000178
+    //    PI: 3.141592653589821
+    //    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 3
+    //    Time: 1.542759682999531
+    //    PI: 3.141592653589961
+    //    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 2
+    //    Time: 2.201832018999994
+    //    PI: 3.141592653589901
+    //    [parcuri@localhost piGreco seriale]$ g++ main.cpp -fopenmp && ./a.out 1000000000 1
+    //    Time: 4.231976058001237
+    //    PI: 3.141592653589971
 
 #endif
 
