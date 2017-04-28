@@ -35,5 +35,5 @@ def myrun(cmd,nRows,nCol):
 
 
 if __name__ == "__main__":
-	cmd = "./a.out " + sys.argv[1] +" "+sys.argv[2] +" "+ sys.argv[3]
+	cmd = "./a.out " + sys.argv[1] +" "+sys.argv[2] +" "+ sys.argv[3]+" "+ sys.argv[4]+" "+ sys.argv[5]+" "+ sys.argv[6]
 	myrun(cmd, int(sys.argv[1]),int(sys.argv[2]))
