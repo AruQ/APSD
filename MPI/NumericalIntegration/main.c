@@ -54,11 +54,9 @@ int main (int argc, char** argv)
       MPI_Send(&integral,1,MPI_FLOAT,dest,tag,MPI_COMM_WORLD);
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
     finish = MPI_Wtime();
-
     partialTime = finish - start;
-
-    partialTime = get_max_time(partialTime, my_rank, numprocs);
 
     if(my_rank == 0)
     {
@@ -73,20 +71,6 @@ int main (int argc, char** argv)
 
 }
 
-double get_max_time(double partialTime, int my_rank, int p) {
-   MPI_Status status;
-   double temp;
-
-   if (my_rank == 0) {
-      for (int source = 1; source < p; source++) {
-         MPI_Recv(&temp, 1, MPI_DOUBLE, source, 0, MPI_COMM_WORLD, &status);
-         if (temp > partialTime) partialTime = temp;
-      }
-   } else {
-      MPI_Send(&partialTime, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-   }
-   return partialTime;
-}
 
 float f(float x)
 {
