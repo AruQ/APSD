@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SIZE 8
+#define SIZE 16
 
 MPI_Status status;
 
@@ -72,11 +72,11 @@ int main(int argc, char* argv[]) {
     //    }
 
 //    printf ("local size %d\n", local_size);
-    data = (int*) malloc (sizeof(int) * SIZE);
-    for (int i = 0; i < SIZE; i++)
-        data[i] = i;
     if (rank == mpi_root)
     {
+        data = (int*) malloc (sizeof(int) * SIZE);
+        for (int i = 0; i < SIZE; i++)
+            data[i] = i;
 
         for (int i=1; i<numproc; i++)
         {
@@ -93,9 +93,12 @@ int main(int argc, char* argv[]) {
 
     if (rank != mpi_root)
     {
-//        data = (int*) malloc (sizeof(int) * local_size);
-//        MPI_Recv(data, local_size,
-//                 MPI_INT, mpi_root, 0, MPI_COMM_WORLD, &status);
+        data = (int*) malloc (sizeof(int) * local_size);
+        MPI_Recv(data, local_size,
+                 MPI_INT, mpi_root, 0, MPI_COMM_WORLD, &status);
+
+
+
 
     }
 
@@ -111,7 +114,7 @@ int main(int argc, char* argv[]) {
 
     // each rank only gets one entry, and
     // they need to sum them by sending messages
-    int result = binary_tree_method(data[rank], rank, numproc);
+    int result = binary_tree_method(data[0], rank, numproc);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Compute the correct result
