@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SIZE 16
+#define SIZE 10000
+
+//provare con 100000
 
 MPI_Status status;
 
@@ -34,7 +36,6 @@ int binary_tree_method (int value, int rank, int numproc)
                 MPI_Recv(&receivedValue, 1,
                          MPI_INT, sender, 0, MPI_COMM_WORLD, &status);
 
-                //                printf("sono il processo %d ho ricevuto da %d il numero %d e lo sommo a %d\n", rank, sender, receivedValue, value);
                 value += receivedValue;
             }
             else if (rank == sender)
@@ -64,14 +65,13 @@ int main(int argc, char* argv[]) {
 
 
     int * data;
-    //    int * local_data;
-    int local_size = (SIZE/numproc);
-    //    if (rank == numproc-1)
-    //    {
-    //        local_size += SIZE%numproc;
-    //    }
 
-//    printf ("local size %d\n", local_size);
+    int local_size = (SIZE/numproc);
+        if (rank == numproc-1)
+        {
+            local_size += SIZE%numproc;
+        }
+
     if (rank == mpi_root)
     {
         data = (int*) malloc (sizeof(int) * SIZE);
@@ -80,13 +80,12 @@ int main(int argc, char* argv[]) {
 
         for (int i=1; i<numproc; i++)
         {
-            //            if (i == numproc-1)
-            //                MPI_Send(&data[i*local_size], local_size+SIZE%numproc, MPI_INT,
-            //                        i, mpi_root, MPI_COMM_WORLD);
-
-            //            else
-            MPI_Send(&data[i*local_size], local_size, MPI_INT,
-                    i, mpi_root, MPI_COMM_WORLD);
+            if (i == numproc-1)
+                MPI_Send(&data[i*local_size], local_size+SIZE%numproc, MPI_INT,
+                        i, mpi_root, MPI_COMM_WORLD);
+            else
+                MPI_Send(&data[i*local_size], local_size, MPI_INT,
+                        i, mpi_root, MPI_COMM_WORLD);
 
         }
     }
@@ -96,24 +95,13 @@ int main(int argc, char* argv[]) {
         data = (int*) malloc (sizeof(int) * local_size);
         MPI_Recv(data, local_size,
                  MPI_INT, mpi_root, 0, MPI_COMM_WORLD, &status);
-
-
-
-
     }
 
     int localSum =0;
     for (int i = 0; i < local_size; ++i) {
-        //        if (rank==0)
         localSum+= data[i];
-
-
     }
 
-    //    printf ("rank %d local size %d local sum %d \n",rank, local_size, localSum);
-
-    // each rank only gets one entry, and
-    // they need to sum them by sending messages
     int result = binary_tree_method(localSum, rank, numproc);
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -129,9 +117,7 @@ int main(int argc, char* argv[]) {
     }
     MPI::Finalize();
 
-    //    if (rank==0)
+
     free (data);
 
-    //    else
-    //        free(local_data);
 }
