@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-#define DIMENSION 10000
+#define DIMENSION 200000000
 #define mpi_root 0
 #define toFind 3
 
 int main(int argc, char* argv[]) {
+
+    double start = 0, finish = 0, partialTime = 0;
 
     int rank,size;
     MPI_Status status;
@@ -22,6 +24,9 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     MPI_Comm_size(MPI_COMM_WORLD,&size);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
+
     int local_size = DIMENSION/(size);
     if (rank == size-2)
     {
@@ -35,8 +40,8 @@ int main(int argc, char* argv[]) {
         {
 
             array[i] = i%(DIMENSION/2);
-            if (array[i] == toFind)
-                countsSerial++;
+//            if (array[i] == toFind)
+//                countsSerial++;
 
         }
     }
@@ -58,13 +63,23 @@ int main(int argc, char* argv[]) {
 
     MPI_Reduce(&occurences, &globalOccurences, 1, MPI_INT, MPI_SUM, mpi_root,MPI_COMM_WORLD);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    finish = MPI_Wtime();
+    partialTime = finish - start;
+
+    if(rank == mpi_root)
+    {
+      printf("Time = %f\n",partialTime );
+    }
     MPI_Finalize();
+
+
 
     if (rank==mpi_root)
     {
 
         printf("Number of occurrences parallel: %d\n",globalOccurences);
-        printf("Number of occurrences serial: %d\n",countsSerial);
+//        printf("Number of occurrences serial: %d\n",countsSerial);
         free(array);
 
     }
