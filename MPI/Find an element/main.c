@@ -44,8 +44,9 @@ int main(int argc, char* argv[]) {
 
     int found = -1;
     int done;
+    int globalFound = -1;
 
-    MPI_Irecv(&found,1,MPI_INT,MPI_ANY_SOURCE,0,MPI_COMM_WORLD,&request);
+    MPI_Irecv(&globalFound,1,MPI_INT,MPI_ANY_SOURCE,0,MPI_COMM_WORLD,&request);
     MPI_Test(&request,&done,&status);
 
     for(int i = 0; i< local_size && !done; i++)
@@ -53,9 +54,7 @@ int main(int argc, char* argv[]) {
         if (local_array[i] == toFind)
         {
             found = rank* local_size+i;
-
-//            printf("sono qui e sono %d all'indice %d \n", rank, i);
-            for(int n=0;n<size && n!=rank;++n) {
+            for(int n=0;n<size;++n) {
                 MPI_Send(&found,1,MPI_INT,n,0,MPI_COMM_WORLD);
             }
         }
