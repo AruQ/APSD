@@ -102,19 +102,19 @@ int main(int argc, char* argv[]) {
 
     }
 
-//    int localSum =0;
-//    for (int i = 0; i < local_size; ++i) {
-//        //        if (rank==0)
-//        localSum+= data[i];
+    int localSum =0;
+    for (int i = 0; i < local_size; ++i) {
+        //        if (rank==0)
+        localSum+= data[i];
 
 
-//    }
+    }
 
     //    printf ("rank %d local size %d local sum %d \n",rank, local_size, localSum);
 
     // each rank only gets one entry, and
     // they need to sum them by sending messages
-    int result = binary_tree_method(data[0], rank, numproc);
+    int result = binary_tree_method(localSum, rank, numproc);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Compute the correct result
