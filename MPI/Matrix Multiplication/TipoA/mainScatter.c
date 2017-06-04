@@ -15,7 +15,7 @@ inline int get (int i, int j, int nCol)
 int numnodes,myid,mpi_err;
 #define mpi_root 0
 
-#define DIMENSION 13
+#define DIMENSION 1000
 
 
 void init_it(int  *argc, char ***argv);
@@ -31,8 +31,12 @@ int main(int argc,char *argv[]){
     int * local_c;
     int * b, *a, *c;
     int* counts;
+    double start = 0, finish = 0, partialTime = 0;
 
     init_it(&argc,&argv);
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
+
 
     b = (int*)malloc(sizeof(int)*DIMENSION * DIMENSION);
 
@@ -50,6 +54,7 @@ int main(int argc,char *argv[]){
         c = (int*)malloc(sizeof(int)*DIMENSION * DIMENSION);
 
 
+
         for (int dest = 1; dest<numnodes; ++dest) {
             MPI_Send(b, DIMENSION*DIMENSION, MPI_INT, dest, mpi_root, MPI_COMM_WORLD);
 
@@ -58,6 +63,7 @@ int main(int argc,char *argv[]){
     }
 
     counts=(int*)malloc(sizeof(int)*numnodes);
+
     for (int i = 0; i < numnodes; ++i) {
         counts[i] = DIMENSION/(numnodes);
         if (i == numnodes-1)
@@ -73,15 +79,14 @@ int main(int argc,char *argv[]){
         displs[i]=counts[i-1]+displs[i-1];
     }
 
+//    printf("sono count di myid  %d count: %d e il mio displ è %d\n", myid,counts[myid], displs[myid]);
 
 
     local_a = (int*)malloc(sizeof(int)*counts[myid]);
     local_c = (int*)malloc(sizeof(int)*counts[myid]);
 
 
-//    printf("sono count di myid  %d %d\n", myid,counts[myid]);
 
-    MPI_Scatterv(a,counts,displs, MPI_INT,local_a,counts[myid],MPI_INT, mpi_root,MPI_COMM_WORLD);
 
     if (myid != mpi_root)
     {
@@ -90,6 +95,9 @@ int main(int argc,char *argv[]){
 
 
     }
+
+    MPI_Scatterv(a,counts,displs, MPI_INT,local_a,counts[myid],MPI_INT, mpi_root,MPI_COMM_WORLD);
+
     for (int i = 0; i < counts[myid]; ++i) {
 
         local_c[i] = 0;
@@ -109,12 +117,21 @@ int main(int argc,char *argv[]){
 
     if (myid == mpi_root)
     {
-        for (int i = 0; i< DIMENSION*DIMENSION; i++)
-        {
-            printf ("%d ", c[i]);
-            if ((i+1)%DIMENSION ==0)
-                printf ("\n");
-        }
+//        for (int i = 0; i< DIMENSION*DIMENSION; i++)
+//        {
+//            printf ("%d ", c[i]);
+//            if ((i+1)%DIMENSION ==0)
+//                printf ("\n");
+//        }
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    finish = MPI_Wtime();
+    partialTime = finish - start;
+
+    if(myid == mpi_root)
+    {
+      printf("Time = %f\n",partialTime );
     }
 
     mpi_err = MPI_Finalize();
