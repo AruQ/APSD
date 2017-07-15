@@ -26,6 +26,7 @@ struct InfoBlock
     bool halo[4] = {false, false, false,false};
     int* cart_coordinates;
     int* cart_dimensions;
+    int rank;
 };
 
 
@@ -53,7 +54,7 @@ private:
     InfoBlock* infoBlock;
     InfoHalo infoSendHalo;
     InfoHalo infoRecvHalo;
-    unsigned int id;
+    unsigned int myid;
 
     MPI_Datatype MPI_VERTICAL_BORDER;
     MPI_Datatype MPI_HORIZONTAL_BORDER;
@@ -116,7 +117,7 @@ public:
     void setInfoBlock(InfoBlock * _infoBlock)
     {
 
-        id = ID++;
+        myid = ID++;
         infoBlock = _infoBlock;
         size = infoBlock->size_x * infoBlock->size_y;
         current= new float[size];
@@ -216,25 +217,29 @@ public:
 
         if(infoSendHalo.neighbor_down!=-1)
         {
-            printf( "-------------SEND rank %d %d down che è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_down);
-            MPI_Isend(&current[infoBlock->size_y-1],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_down,DOWN+ID,MPI_COMM_CUBE,&infoSendHalo.requests[DOWN]);
+            int tag = myid+myid*DOWN+infoSendHalo.neighbor_down;
+            //            printf( "-------------SEND rank %d %d down che è %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_down, tag);
+            MPI_Isend(&current[infoBlock->size_y-1],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_down,tag,MPI_COMM_CUBE,&infoSendHalo.requests[DOWN]);
         }
         if(infoSendHalo.neighbor_up!=-1)
         {
-            printf( "-------------SEND rank %d %d up CHE È %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_up);
-            MPI_Isend(&current[0],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_up,UP+ID,MPI_COMM_CUBE,&infoSendHalo.requests[UP]);
+            int tag = myid+myid*UP+infoSendHalo.neighbor_up;
+            //            printf( "-------------SEND rank %d %d up CHE È %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_up,tag);
+            MPI_Isend(&current[0],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_up,tag,MPI_COMM_CUBE,&infoSendHalo.requests[UP]);
         }
 
         if(infoSendHalo.neighbor_right!=-1)
         {
-            printf( "-------------SEND rank %d %d right che è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoSendHalo.neighbor_right);
-            MPI_Isend(&current[0],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_right,RIGHT+ID,MPI_COMM_CUBE,&infoSendHalo.requests[RIGHT]);
+            int tag = myid+myid*RIGHT+infoSendHalo.neighbor_right;
+            //            printf( "-------------SEND rank %d %d right che è %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoSendHalo.neighbor_right, tag);
+            MPI_Isend(&current[0],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_right,tag ,MPI_COMM_CUBE,&infoSendHalo.requests[RIGHT]);
         }
 
         if(infoSendHalo.neighbor_left!=-1)
         {
-            printf( "-------------SEND rank %d %d left che è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_left);
-            MPI_Isend(&current[infoBlock->size_x-1],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_left,LEFT+ID,MPI_COMM_CUBE,&infoSendHalo.requests[LEFT]);
+            int tag = myid+myid*LEFT+infoSendHalo.neighbor_left;
+            //            printf( "-------------SEND rank %d %d left che è %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_left,tag);
+            MPI_Isend(&current[infoBlock->size_x-1],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_left,tag,MPI_COMM_CUBE,&infoSendHalo.requests[LEFT]);
         }
 
 
@@ -252,25 +257,29 @@ public:
 
         if(infoRecvHalo.neighbor_down!=-1)
         {
-            printf( "++++++++RECEIVE rank %d %d down da %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoRecvHalo.neighbor_down);
-            MPI_Irecv(&halos[DOWN],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_down,UP+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[DOWN]);
+            int tag = myid+myid*UP+infoBlock->rank;
+            //            printf( "++++++++RECEIVE rank %d %d down da %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoRecvHalo.neighbor_down,tag );
+            MPI_Irecv(halos[DOWN],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_down,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[DOWN]);
         }
         if(infoRecvHalo.neighbor_up!=-1)
         {
-            printf( "++++++++RECEIVE rank %d %d up da %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_up);
-            MPI_Irecv(&halos[UP],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_up,DOWN+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[UP]);
+            int tag = myid+myid*DOWN+infoBlock->rank;
+            //            printf( "++++++++RECEIVE rank %d %d up da %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_up, tag);
+            MPI_Irecv(halos[UP],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_up,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[UP]);
         }
 
         if(infoRecvHalo.neighbor_right!=-1)
         {
-            printf( "++++++++RECEIVE rank %d %d right da %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_right);
-            MPI_Irecv(&halos[RIGHT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_right,LEFT+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[RIGHT]);
+            int tag = myid+myid*LEFT+infoBlock->rank;
+            //            printf( "++++++++RECEIVE rank %d %d right da %d e il tag=%d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_right,tag);
+            MPI_Irecv(halos[RIGHT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_right,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[RIGHT]);
         }
 
         if(infoRecvHalo.neighbor_left!=-1)
         {
-            printf( "++++++++RECEIVE rank %d %d left da %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_left);
-            MPI_Irecv(&halos[LEFT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_left,RIGHT+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[LEFT]);
+            int tag = myid+myid*RIGHT+infoBlock->rank;
+            //            printf( "++++++++RECEIVE rank %d %d left da %d e il tag=%d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_left, tag);
+            MPI_Irecv(halos[LEFT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_left,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[LEFT]);
         }
 
     }
@@ -294,12 +303,11 @@ public:
                 MPI_Wait(&infoRecvHalo.requests[i], &status);
 
 
-//                if (status.MPI_ERROR==MPI_SUCCESS)
-//                    printf("SONO CAZZI \n");
-                for(int j=0; j< 1; j++)
-                {
-                    cout<<halos[i][j]<<std::endl;
-                }
+
+                //                for(int j=0; j< infoBlock->size_y; j++)
+                //                {
+                //                    cout<<halos[i][j]<<" ";
+                //                }
 
             }
         }
@@ -314,19 +322,18 @@ public:
                 printf("halo i=%d del rank (%d,%d)\n", i, infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1]);
                 if (i == UP ||i == DOWN)
                 {
-                    if (halos[i]!= NULL)
-                        printf("++++++++++++++no nodsasafd\n\n\n ");
-                    //                    printf("%f ", halos[i][0]);
+
                     for(int j=0; j< infoBlock->size_x; j++)
                     {
 
-                        //                        printf("no nodsasafd\n ");
+                        printf("%f ", halos[i][j]);
+
                     }
                 }
                 else
                     for(int j=0; j< infoBlock->size_y; j++)
                     {
-                        printf("sdfjsdkgfdgfdk no nodsasafd\n ");
+
                         printf("%f ", halos[i][j]);
 
                     }
@@ -415,35 +422,36 @@ public:
 
         recvCompleted(&altitude);
 
-        //        debrids.send_halos(MPI_COMM_CUBE);
-        //        debrids.recv_halos(MPI_COMM_CUBE);
+                debrids.send_halos(MPI_COMM_CUBE);
+                debrids.recv_halos(MPI_COMM_CUBE);
 
 
-        ////        sendCompleted(&debrids);
-        //        recvCompleted(&debrids);
+        //        //        sendCompleted(&debrids);
+                recvCompleted(&debrids);
 
-        //        while(step < STEPS)
-        //        {
-        //            transitionFunction(MPI_COMM_CUBE);
-
-
-        ////            debrids.parallelForSwap();
+        while(step < STEPS)
+        {
+            transitionFunction(MPI_COMM_CUBE);
 
 
-        ////            debrids.send_halos(MPI_COMM_CUBE);
-        ////            debrids.recv_halos(MPI_COMM_CUBE);
-
-        ////            sendCompleted(&debrids);
-        ////            recvCompleted(&debrids);
-
-        //            steering();
-
-//        altitude.stampaHalos();
+            debrids.parallelForSwap();
 
 
+            debrids.send_halos(MPI_COMM_CUBE);
+            debrids.recv_halos(MPI_COMM_CUBE);
 
-        //            step++;
-        //        }
+            sendCompleted(&debrids);
+            recvCompleted(&debrids);
+
+            steering();
+
+
+            altitude.stampaHalos();
+
+
+
+            step++;
+        }
     }
 
     void steering()
@@ -550,6 +558,7 @@ int main(int argc, char *argv[])
     InfoBlock infoBlock;
     infoBlock.cart_coordinates= cart_coordinates;
     infoBlock.cart_dimensions = cart_dimensions;
+    infoBlock.rank = rank;
     //    unsigned int size = ;
 
     Reader readerZ(pathZ);
@@ -595,7 +604,7 @@ int main(int argc, char *argv[])
         sciddica.init(MPI_root, MPI_COMM_CUBE);
         //            substate.block_receiving(MPI_root,MPI_COMM_CUBE,1);
 
-        //        cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
+        cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
 
 
     }
