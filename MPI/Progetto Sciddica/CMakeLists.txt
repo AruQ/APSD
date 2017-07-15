@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(Project)
 
-add_executable(mytest seTuttoVaBeneSiamoRovinati.cpp)
+add_executable(mytest mainSciddica.cpp)
 
 # Require MPI for this project:
 find_package(MPI REQUIRED)

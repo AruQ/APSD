@@ -23,20 +23,44 @@ struct InfoBlock
     int size_y = 0;
     int last_x = 0;
     int last_y = 0;
-    bool halo[4] = {false};
+    bool halo[4] = {false, false, false,false};
     int* cart_coordinates;
     int* cart_dimensions;
 };
 
 
+struct InfoHalo
+{
+    int   	neighbor_down   	= 0;
+    int   	neighbor_up   	= 0;
+    int   	neighbor_left   	= 0;
+    int   	neighbor_right   	= 0;
+    MPI_Request requests[4];
+};
+
+
+
 class Substate
 {
 private:
+
+    static int ID;
     const int neighborhoodPattern[4][2]=
     {{-1,0},{0,-1}, {0,1},{1,0}}; //CONTROLARE ORDINE
-    float * subMatrix;
+    float * current;
+    float * next;
     int size;
     InfoBlock* infoBlock;
+    InfoHalo infoSendHalo;
+    InfoHalo infoRecvHalo;
+    unsigned int id;
+
+    MPI_Datatype MPI_VERTICAL_BORDER;
+    MPI_Datatype MPI_HORIZONTAL_BORDER;
+
+
+
+
 
     float * halos[4];
 public:
@@ -44,6 +68,7 @@ public:
     Substate(InfoBlock* infoBlock)
     {
         setInfoBlock(infoBlock);
+
 
 
     }
@@ -56,8 +81,10 @@ public:
     ~Substate()
     {
 
-        if(subMatrix != NULL)
-            delete [] subMatrix;
+        if(current != NULL)
+            delete [] current;
+        if(next != NULL)
+            delete [] next;
 
         for (int i = 0; i < 4; ++i) {
             if (halos[i] != NULL)
@@ -67,35 +94,70 @@ public:
         }
     }
 
+    void setMatrix (float * matrix) //non andare in segfault su submatrix non allocato(se è vero)
+    {
+
+        for (int i = 0; i < size; ++i) {
+            current[i] = matrix[i];
+            next[i] = matrix[i];
+        }
+    }
+
+
+    void parallelForSwap() {
+#pragma omp for
+        for (int i = 0; i < size; i++) {
+
+            current[i] = next[i];
+        }
+
+    }
+
     void setInfoBlock(InfoBlock * _infoBlock)
     {
+
+        id = ID++;
         infoBlock = _infoBlock;
         size = infoBlock->size_x * infoBlock->size_y;
-        subMatrix= new float[size];
+        current= new float[size];
+        next = new float [size];
 
         for (int i = 0; i < 4; ++i)
         {
             if (infoBlock->halo[i] && ((i == HALO_TYPE::UP)|| (i == HALO_TYPE::DOWN)))
             {
                 halos[i] = new float [infoBlock->size_x];
+
+                for (int j = 0; j < infoBlock->size_x; ++j) {
+                    halos[i][j] = 0.0f;
+                }
             }
 
             else if (infoBlock->halo[i] && ((i == HALO_TYPE::LEFT)|| (i == HALO_TYPE::RIGHT)))
             {
                 halos[i] = new float [infoBlock->size_y];
+                for (int j = 0; j < infoBlock->size_y; ++j) {
+                    halos[i][j] = 0.0f;
+                }
             }
-            else if (!infoBlock->halo[i])
+            else/* if (!infoBlock->halo[i])*/
             {
                 halos[i]= NULL;
             }
         }
+
+        MPI_Type_vector(infoBlock->size_y, 1, infoBlock->size_x, MPI_FLOAT, &MPI_VERTICAL_BORDER);
+        MPI_Type_commit(&MPI_VERTICAL_BORDER);
+
+        MPI_Type_contiguous(infoBlock->size_x, MPI_FLOAT, &MPI_HORIZONTAL_BORDER);
+        MPI_Type_commit(&MPI_HORIZONTAL_BORDER);
     }
 
     bool get(int i,int j,  float & val)
     {
         if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
         {
-            val= subMatrix [i*infoBlock->size_x + j];
+            val= current [i*infoBlock->size_x + j];
             return true;
         }
         return false;
@@ -125,14 +187,14 @@ public:
     void init(float val)
     {
         for (int i = 0; i < size; ++i) {
-            subMatrix[i] = val;
+            current[i] = val;
         }
     }
     bool set (int i, int j, float & val)
     {
         if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
         {
-            subMatrix [i*infoBlock->size_x + j]= val;
+            current [i*infoBlock->size_x + j]= val;
             return true;
         }
         return false;
@@ -143,7 +205,138 @@ public:
     void block_receiving(int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag)
     {
         MPI_Status status;
-        MPI_Recv(subMatrix, infoBlock->size_x*infoBlock->size_y, MPI_FLOAT, MPI_root, tag, MPI_COMM_CUBE, &status);
+        MPI_Recv(current, infoBlock->size_x*infoBlock->size_y, MPI_FLOAT, MPI_root, tag, MPI_COMM_CUBE, &status);
+    }
+
+    void send_halos(MPI_Comm & MPI_COMM_CUBE)
+    {
+
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoSendHalo.neighbor_up, &infoSendHalo.neighbor_down);
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoSendHalo.neighbor_left, &infoSendHalo.neighbor_right);
+
+        if(infoSendHalo.neighbor_down!=-1)
+        {
+            printf( "-------------SEND rank %d %d down che è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_down);
+            MPI_Isend(&current[infoBlock->size_y-1],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_down,DOWN+ID,MPI_COMM_CUBE,&infoSendHalo.requests[DOWN]);
+        }
+        if(infoSendHalo.neighbor_up!=-1)
+        {
+            printf( "-------------SEND rank %d %d up CHE È %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_up);
+            MPI_Isend(&current[0],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_up,UP+ID,MPI_COMM_CUBE,&infoSendHalo.requests[UP]);
+        }
+
+        if(infoSendHalo.neighbor_right!=-1)
+        {
+            printf( "-------------SEND rank %d %d right che è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoSendHalo.neighbor_right);
+            MPI_Isend(&current[0],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_right,RIGHT+ID,MPI_COMM_CUBE,&infoSendHalo.requests[RIGHT]);
+        }
+
+        if(infoSendHalo.neighbor_left!=-1)
+        {
+            printf( "-------------SEND rank %d %d left che è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_left);
+            MPI_Isend(&current[infoBlock->size_x-1],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_left,LEFT+ID,MPI_COMM_CUBE,&infoSendHalo.requests[LEFT]);
+        }
+
+
+
+    }
+
+
+
+    void recv_halos(MPI_Comm & MPI_COMM_CUBE)
+    {
+
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoRecvHalo.neighbor_up, &infoRecvHalo.neighbor_down);
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoRecvHalo.neighbor_left, &infoRecvHalo.neighbor_right);
+
+
+        if(infoRecvHalo.neighbor_down!=-1)
+        {
+            printf( "++++++++RECEIVE rank %d %d down da %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoRecvHalo.neighbor_down);
+            MPI_Irecv(&halos[DOWN],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_down,UP+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[DOWN]);
+        }
+        if(infoRecvHalo.neighbor_up!=-1)
+        {
+            printf( "++++++++RECEIVE rank %d %d up da %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_up);
+            MPI_Irecv(&halos[UP],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_up,DOWN+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[UP]);
+        }
+
+        if(infoRecvHalo.neighbor_right!=-1)
+        {
+            printf( "++++++++RECEIVE rank %d %d right da %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_right);
+            MPI_Irecv(&halos[RIGHT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_right,LEFT+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[RIGHT]);
+        }
+
+        if(infoRecvHalo.neighbor_left!=-1)
+        {
+            printf( "++++++++RECEIVE rank %d %d left da %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_left);
+            MPI_Irecv(&halos[LEFT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_left,RIGHT+ID,MPI_COMM_CUBE,&infoRecvHalo.requests[LEFT]);
+        }
+
+    }
+
+    bool sendCompleted()
+    {
+        for (int i = 0; i < 4; ++i) {
+            MPI_Status status;
+            if (infoBlock->halo[i])
+                MPI_Wait(&infoSendHalo.requests[i], &status);
+        }
+    }
+
+    bool recvCompleted()
+    {
+
+        for (int i = 0; i < 4; ++i) {
+            MPI_Status status;
+            if (infoBlock->halo[i])
+            {
+                MPI_Wait(&infoRecvHalo.requests[i], &status);
+
+
+//                if (status.MPI_ERROR==MPI_SUCCESS)
+//                    printf("SONO CAZZI \n");
+                for(int j=0; j< 1; j++)
+                {
+                    cout<<halos[i][j]<<std::endl;
+                }
+
+            }
+        }
+
+    }
+
+    void stampaHalos ()
+    {
+        for (int i = 0; i < 4; ++i) {
+            if (infoBlock->halo[i])
+            {
+                printf("halo i=%d del rank (%d,%d)\n", i, infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1]);
+                if (i == UP ||i == DOWN)
+                {
+                    if (halos[i]!= NULL)
+                        printf("++++++++++++++no nodsasafd\n\n\n ");
+                    //                    printf("%f ", halos[i][0]);
+                    for(int j=0; j< infoBlock->size_x; j++)
+                    {
+
+                        //                        printf("no nodsasafd\n ");
+                    }
+                }
+                else
+                    for(int j=0; j< infoBlock->size_y; j++)
+                    {
+                        printf("sdfjsdkgfdgfdk no nodsasafd\n ");
+                        printf("%f ", halos[i][j]);
+
+                    }
+
+
+            }
+            printf("\n");
+
+
+        }
     }
 
     friend std::ostream & operator <<( std::ostream &os, const Substate &substate )
@@ -153,7 +346,7 @@ public:
 
         for (int i = 0; i < substate.infoBlock->size_y; ++i) {
             for (int j = 0; j < substate.infoBlock->size_x; ++j) {
-                os<<substate.subMatrix[i*substate.infoBlock->size_x+ j]<<" ";
+                os<<substate.current[i*substate.infoBlock->size_x+ j]<<" ";
 
 
             }
@@ -167,13 +360,15 @@ public:
 
 };
 
+int Substate::ID =10;
+
 #define NUMBER_OF_OUTFLOWS 4
 
 class CellularAutomata
 {
 private:
-    Substate z;
-    Substate h;
+    Substate altitude;
+    Substate debrids;
     Substate f[NUMBER_OF_OUTFLOWS];
 
     double epsilon;
@@ -182,8 +377,8 @@ private:
     InfoBlock* infoBlock;
 
 public:
-    CellularAutomata (InfoBlock* infoBlock) : infoBlock(infoBlock),z(infoBlock),
-        h(infoBlock)
+    CellularAutomata (InfoBlock* infoBlock) : infoBlock(infoBlock),altitude(infoBlock),
+        debrids(infoBlock)
     {
         f[0].setInfoBlock(infoBlock);
         f[1].setInfoBlock(infoBlock);
@@ -191,7 +386,7 @@ public:
         f[3].setInfoBlock(infoBlock);
     }
 
-    void transitionFunction ()
+    void transitionFunction (MPI_Comm & MPI_COMM_CUBE)
     {
 
     }
@@ -199,14 +394,80 @@ public:
 
     void init (int & MPI_root, MPI_Comm & MPI_COMM_CUBE)
     {
-        z.block_receiving(MPI_root, MPI_COMM_CUBE, 0);
-        h.block_receiving(MPI_root, MPI_COMM_CUBE, 1);
+        altitude.block_receiving(MPI_root, MPI_COMM_CUBE, 0);
+        debrids.block_receiving(MPI_root, MPI_COMM_CUBE, 1);
     }
+
+
+    void init (float * z, float * h)
+    {
+        this->debrids.setMatrix(h);
+        this->altitude.setMatrix(z);
+    }
+
+    void run (unsigned int STEPS, MPI_Comm & MPI_COMM_CUBE)
+    {
+        int step = 0;
+
+
+        altitude.send_halos(MPI_COMM_CUBE);
+        altitude.recv_halos(MPI_COMM_CUBE);
+
+        recvCompleted(&altitude);
+
+        //        debrids.send_halos(MPI_COMM_CUBE);
+        //        debrids.recv_halos(MPI_COMM_CUBE);
+
+
+        ////        sendCompleted(&debrids);
+        //        recvCompleted(&debrids);
+
+        //        while(step < STEPS)
+        //        {
+        //            transitionFunction(MPI_COMM_CUBE);
+
+
+        ////            debrids.parallelForSwap();
+
+
+        ////            debrids.send_halos(MPI_COMM_CUBE);
+        ////            debrids.recv_halos(MPI_COMM_CUBE);
+
+        ////            sendCompleted(&debrids);
+        ////            recvCompleted(&debrids);
+
+        //            steering();
+
+//        altitude.stampaHalos();
+
+
+
+        //            step++;
+        //        }
+    }
+
+    void steering()
+    {
+
+    }
+
+    void sendCompleted(Substate* substate)
+    {
+        substate->sendCompleted();
+    }
+
+    void recvCompleted(Substate* substate)
+    {
+        substate->recvCompleted();
+    }
+
+
+
 
     friend std::ostream & operator <<( std::ostream &os, const CellularAutomata &CA )
     {
 
-        os<<CA.h;
+        os<<CA.debrids;
         return os;
     }
 
@@ -229,6 +490,7 @@ void block_sending(Reader* reader, InfoBlock * infoBlock, int num_procs,int size
 
 int main(int argc, char *argv[])
 {
+
 
     int num_procs = 0;
     int  rank = 0;
@@ -254,9 +516,11 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     //    MPI_Barrier(MPI_COMM_WORLD);
 
-    const char* path = argv[1];
-    int totalSteps = atoi(argv[2]);
-    int stepOffset = atoi(argv[3]);
+    const char* pathZ = argv[1];
+    const char* pathH = argv[2];
+
+    int totalSteps = atoi(argv[3]);
+    int stepOffset = atoi(argv[4]);
 
     /* Get the number of processes created by MPI and their rank */
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -273,10 +537,12 @@ int main(int argc, char *argv[])
 
     /* Get relevant data from the created topology */
     MPI_Cart_coords(MPI_COMM_CUBE, rank, NUMBER_OF_DIMENSIONS, cart_coordinates);
-    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
+    //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
     MPI_Cart_rank(MPI_COMM_CUBE, cart_coordinates, &rank);
     MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &neighbor_up, &neighbor_down);
-    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
+    //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
+    //    printf("rank %d : up %d down %d \n", rank, neighbor_up, neighbor_down);
+
     MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &neighbor_left, &neighbor_right);
 
 
@@ -286,18 +552,20 @@ int main(int argc, char *argv[])
     infoBlock.cart_dimensions = cart_dimensions;
     //    unsigned int size = ;
 
-    Reader reader(path);
+    Reader readerZ(pathZ);
+    Reader readerH(pathH);
     if (rank == MPI_root)
     {
-        reader.loadFromFile();
+        readerZ.loadFromFile();
+        readerH.loadFromFile();
 
-        std::cout<<reader<<std::endl;
-
+        //        std::cout<<readerZ<<std::endl;
+        //        std::cout<<readerH<<std::endl;
 
 
     }
-    MPI_Bcast(&reader.nCols, 1, MPI_INT,MPI_root, MPI_COMM_CUBE);
-    MPI_Bcast(&reader.nRows, 1, MPI_INT,MPI_root, MPI_COMM_CUBE);
+    MPI_Bcast(&readerZ.nCols, 1, MPI_INT,MPI_root, MPI_COMM_CUBE);
+    MPI_Bcast(&readerZ.nRows, 1, MPI_INT,MPI_root, MPI_COMM_CUBE);
 
     if (rank != MPI_root)
     {
@@ -306,31 +574,38 @@ int main(int argc, char *argv[])
         //        MPI_Recv(&reader.getRows(), 1, MPI_INT, MPI_root, 0, MPI_COMM_CUBE, &status);
     }
 
-    block_distribution(infoBlock, reader.nCols, reader.nRows);
-    stampa(infoBlock, rank);
+    block_distribution(infoBlock, readerZ.nCols, readerZ.nRows);
+    //    stampa(infoBlock, rank);
     CellularAutomata sciddica (&infoBlock);
 
 
-        if (rank == MPI_root)
-        {
-            block_sending(&reader,&infoBlock,num_procs,reader.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,0);
-            block_sending(&reader,&infoBlock,num_procs,reader.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,1);
+    if (rank == MPI_root)
+    {
+        block_sending(&readerZ,&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,0);
+        block_sending(&readerH,&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,1);
+        sciddica.init(readerZ.getData(),readerH.getData());
+    }
+    if (rank != MPI_root)
+    {
+        //TODO LA ROOT DEVE RIEMPIRE A MANO LA SUA
 
-        }
-        if (rank != MPI_root)
-        {
-//TODO LA ROOT DEVE RIEMPIRE A MANO LA SUA
-
-            //fare metodo che ricolleziona i dati nella matrice globale
-
-
-            sciddica.init(MPI_root, MPI_COMM_CUBE);
-//            substate.block_receiving(MPI_root,MPI_COMM_CUBE,1);
-
-            cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
+        //fare metodo che ricolleziona i dati nella matrice globale
 
 
-        }
+        sciddica.init(MPI_root, MPI_COMM_CUBE);
+        //            substate.block_receiving(MPI_root,MPI_COMM_CUBE,1);
+
+        //        cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
+
+
+    }
+
+
+    MPI_Barrier (MPI_COMM_CUBE);
+    sciddica.run(2,MPI_COMM_CUBE);
+
+
+    //    sciddica.transitionFunction(MPI_COMM_CUBE);
 
 
     //    block_sending(reader, infoBlock, MPI_BLOCK_TYPE, size);
