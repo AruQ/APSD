@@ -32,10 +32,7 @@ struct InfoBlock
 
 struct InfoHalo
 {
-    int   	neighbor_down   	= 0;
-    int   	neighbor_up   	= 0;
-    int   	neighbor_left   	= 0;
-    int   	neighbor_right   	= 0;
+    int   	neighbor[4];
     MPI_Request requests[4];
 };
 
@@ -212,35 +209,53 @@ public:
     void send_halos(MPI_Comm & MPI_COMM_CUBE)
     {
 
-        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoSendHalo.neighbor_up, &infoSendHalo.neighbor_down);
-        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoSendHalo.neighbor_left, &infoSendHalo.neighbor_right);
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoSendHalo.neighbor[0], &infoSendHalo.neighbor[1]);
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoSendHalo.neighbor[2], &infoSendHalo.neighbor[3]);
 
-        if(infoSendHalo.neighbor_down!=-1)
-        {
-            int tag = myid+myid*DOWN+infoSendHalo.neighbor_down;
-            //            printf( "-------------SEND rank %d %d down che è %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_down, tag);
-            MPI_Isend(&current[infoBlock->size_y-1],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_down,tag,MPI_COMM_CUBE,&infoSendHalo.requests[DOWN]);
-        }
-        if(infoSendHalo.neighbor_up!=-1)
-        {
-            int tag = myid+myid*UP+infoSendHalo.neighbor_up;
-            //            printf( "-------------SEND rank %d %d up CHE È %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_up,tag);
-            MPI_Isend(&current[0],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_up,tag,MPI_COMM_CUBE,&infoSendHalo.requests[UP]);
-        }
 
-        if(infoSendHalo.neighbor_right!=-1)
-        {
-            int tag = myid+myid*RIGHT+infoSendHalo.neighbor_right;
-            //            printf( "-------------SEND rank %d %d right che è %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoSendHalo.neighbor_right, tag);
-            MPI_Isend(&current[0],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_right,tag ,MPI_COMM_CUBE,&infoSendHalo.requests[RIGHT]);
+        int starterIndex [4] = {0, (infoBlock->size_y-1)*infoBlock->size_x, 0,infoBlock->size_x-1};
+        for (int i = 0; i < 4; ++i) {
+            //            cout<<infoSendHalo.neighbor[i]<<endl;
+
+            if (infoSendHalo.neighbor[i] != -1)
+            {
+                int tag = myid+myid*i+infoSendHalo.neighbor[i];
+
+                if (i ==UP || i == DOWN)
+                    MPI_Isend(&current[starterIndex[i]],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoSendHalo.requests[i]);
+                else
+                    MPI_Isend(&current[starterIndex[i]],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoSendHalo.requests[i]);
+
+
+            }
         }
 
-        if(infoSendHalo.neighbor_left!=-1)
-        {
-            int tag = myid+myid*LEFT+infoSendHalo.neighbor_left;
-            //            printf( "-------------SEND rank %d %d left che è %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_left,tag);
-            MPI_Isend(&current[infoBlock->size_x-1],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_left,tag,MPI_COMM_CUBE,&infoSendHalo.requests[LEFT]);
-        }
+        //        if(infoSendHalo.neighbor_down!=-1)
+        //        {
+        //            int tag = myid+myid*DOWN+infoSendHalo.neighbor_down;
+        //            //            printf( "-------------SEND rank %d %d down che è %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_down, tag);
+        //            MPI_Isend(&current[infoBlock->size_y-1],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_down,tag,MPI_COMM_CUBE,&infoSendHalo.requests[DOWN]);
+        //        }
+        //        if(infoSendHalo.neighbor_up!=-1)
+        //        {
+        //            int tag = myid+myid*UP+infoSendHalo.neighbor_up;
+        //            //            printf( "-------------SEND rank %d %d up CHE È %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_up,tag);
+        //            MPI_Isend(&current[0],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor_up,tag,MPI_COMM_CUBE,&infoSendHalo.requests[UP]);
+        //        }
+
+        //        if(infoSendHalo.neighbor_right!=-1)
+        //        {
+        //            int tag = myid+myid*RIGHT+infoSendHalo.neighbor_right;
+        //            //            printf( "-------------SEND rank %d %d right che è %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoSendHalo.neighbor_right, tag);
+        //            MPI_Isend(&current[0],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_right,tag ,MPI_COMM_CUBE,&infoSendHalo.requests[RIGHT]);
+        //        }
+
+        //        if(infoSendHalo.neighbor_left!=-1)
+        //        {
+        //            int tag = myid+myid*LEFT+infoSendHalo.neighbor_left;
+        //            //            printf( "-------------SEND rank %d %d left che è %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoSendHalo.neighbor_left,tag);
+        //            MPI_Isend(&current[infoBlock->size_x-1],1,MPI_VERTICAL_BORDER,infoSendHalo.neighbor_left,tag,MPI_COMM_CUBE,&infoSendHalo.requests[LEFT]);
+        //        }
 
 
 
@@ -250,37 +265,56 @@ public:
 
     void recv_halos(MPI_Comm & MPI_COMM_CUBE)
     {
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoRecvHalo.neighbor[0], &infoRecvHalo.neighbor[1]);
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoRecvHalo.neighbor[2], &infoRecvHalo.neighbor[3]);
 
-        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoRecvHalo.neighbor_up, &infoRecvHalo.neighbor_down);
-        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoRecvHalo.neighbor_left, &infoRecvHalo.neighbor_right);
+
+        for (int i = 0; i < 4; ++i) {
 
 
-        if(infoRecvHalo.neighbor_down!=-1)
-        {
-            int tag = myid+myid*UP+infoBlock->rank;
-            //            printf( "++++++++RECEIVE rank %d %d down da %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoRecvHalo.neighbor_down,tag );
-            MPI_Irecv(halos[DOWN],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_down,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[DOWN]);
-        }
-        if(infoRecvHalo.neighbor_up!=-1)
-        {
-            int tag = myid+myid*DOWN+infoBlock->rank;
-            //            printf( "++++++++RECEIVE rank %d %d up da %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_up, tag);
-            MPI_Irecv(halos[UP],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_up,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[UP]);
-        }
+            if (infoSendHalo.neighbor[i] != -1)
+            {
+                int sender = (i%2==0? i+1:i-1);
+                int tag = myid+myid*sender+infoBlock->rank;
 
-        if(infoRecvHalo.neighbor_right!=-1)
-        {
-            int tag = myid+myid*LEFT+infoBlock->rank;
-            //            printf( "++++++++RECEIVE rank %d %d right da %d e il tag=%d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_right,tag);
-            MPI_Irecv(halos[RIGHT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_right,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[RIGHT]);
+                MPI_Irecv(halos[i],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoRecvHalo.requests[i]);
+
+            }
         }
 
-        if(infoRecvHalo.neighbor_left!=-1)
-        {
-            int tag = myid+myid*RIGHT+infoBlock->rank;
-            //            printf( "++++++++RECEIVE rank %d %d left da %d e il tag=%d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_left, tag);
-            MPI_Irecv(halos[LEFT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_left,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[LEFT]);
-        }
+
+
+
+        //        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoRecvHalo.neighbor_up, &infoRecvHalo.neighbor_down);
+        //        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoRecvHalo.neighbor_left, &infoRecvHalo.neighbor_right);
+
+
+        //        if(infoRecvHalo.neighbor_down!=-1)
+        //        {
+        //            int tag = myid+myid*UP+infoBlock->rank;
+        //            //            printf( "++++++++RECEIVE rank %d %d down da %d e il tag è %d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1],infoRecvHalo.neighbor_down,tag );
+        //            MPI_Irecv(halos[DOWN],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_down,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[DOWN]);
+        //        }
+        //        if(infoRecvHalo.neighbor_up!=-1)
+        //        {
+        //            int tag = myid+myid*DOWN+infoBlock->rank;
+        //            //            printf( "++++++++RECEIVE rank %d %d up da %d e il tag è %d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_up, tag);
+        //            MPI_Irecv(halos[UP],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor_up,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[UP]);
+        //        }
+
+        //        if(infoRecvHalo.neighbor_right!=-1)
+        //        {
+        //            int tag = myid+myid*LEFT+infoBlock->rank;
+        //            //            printf( "++++++++RECEIVE rank %d %d right da %d e il tag=%d\n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_right,tag);
+        //            MPI_Irecv(halos[RIGHT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_right,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[RIGHT]);
+        //        }
+
+        //        if(infoRecvHalo.neighbor_left!=-1)
+        //        {
+        //            int tag = myid+myid*RIGHT+infoBlock->rank;
+        //            //            printf( "++++++++RECEIVE rank %d %d left da %d e il tag=%d \n", infoBlock->cart_coordinates[0], infoBlock->cart_coordinates[1], infoRecvHalo.neighbor_left, tag);
+        //            MPI_Irecv(halos[LEFT],infoBlock->size_y,MPI_FLOAT,infoRecvHalo.neighbor_left,tag,MPI_COMM_CUBE,&infoRecvHalo.requests[LEFT]);
+        //        }
 
     }
 
@@ -422,12 +456,12 @@ public:
 
         recvCompleted(&altitude);
 
-                debrids.send_halos(MPI_COMM_CUBE);
-                debrids.recv_halos(MPI_COMM_CUBE);
+        debrids.send_halos(MPI_COMM_CUBE);
+        debrids.recv_halos(MPI_COMM_CUBE);
 
 
         //        //        sendCompleted(&debrids);
-                recvCompleted(&debrids);
+        recvCompleted(&debrids);
 
         while(step < STEPS)
         {
@@ -604,11 +638,11 @@ int main(int argc, char *argv[])
         sciddica.init(MPI_root, MPI_COMM_CUBE);
         //            substate.block_receiving(MPI_root,MPI_COMM_CUBE,1);
 
-        cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
 
 
     }
 
+    cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
 
     MPI_Barrier (MPI_COMM_CUBE);
     sciddica.run(2,MPI_COMM_CUBE);
