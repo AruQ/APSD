@@ -166,6 +166,71 @@ public:
         nRows = nCols > nRows? nCols:nRows;
     }
 
+    void fillMatrixNODATAValue ()
+    {
+        if (nCols == nRows)
+            return;
+        float** tmp;
+        if (nCols > nRows)
+        {
+            tmp = new float* [nCols];
+            for (int i = 0; i < nCols; ++i) {
+               tmp[i] = new float[nCols];
+            }
+
+            int diff = nCols-nRows;
+
+            for(int i = 0;i <diff/2;i++)
+                for(int j = 0;j< nCols;j++)
+                    tmp[i][j] = NODATA_value;
+
+            for(int i = nRows+diff/2;i <nCols;i++)
+                for(int j = 0;j< nCols;j++)
+                    tmp[i][j] = NODATA_value;
+
+
+            for(int i = diff/2;i<nRows+diff/2;i++)
+                for(int j = 0;j< nCols;j++)
+                    tmp[i][j] = data[i-diff/2][j];
+
+
+        }
+
+        else
+        {
+            tmp = new float* [nRows];
+            for (int i = 0; i < nRows; ++i) {
+               tmp[i] = new float[nRows];
+            }
+
+            int diff = nRows-nCols;
+
+            for(int i = 0;i <nRows;i++)
+                for(int j = 0;j< diff/2;j++)
+                    tmp[i][j] =NODATA_value;
+
+            for(int i = 0;i <nRows;i++)
+                for(int j = nCols+diff/2;j< nRows;j++)
+                    tmp[i][j] = NODATA_value;
+
+
+            for(int i = 0;i<nRows;i++)
+                for(int j = diff/2;j< nCols+diff/2;j++)
+                    tmp[i][j] = data[i][j-diff/2];
+
+        }
+
+        for(int i =0;i<nRows;i++)
+        {
+            delete [] data[i];
+        }
+        delete [] data;
+        data = tmp;
+
+        nCols = nCols > nRows? nCols:nRows;
+        nRows = nCols > nRows? nCols:nRows;
+    }
+
     float ** getData()
     {
         return data;

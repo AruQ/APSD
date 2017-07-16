@@ -11,6 +11,9 @@
 #define VERTICAL 0
 #define HORIZONTAL 1
 
+#define P_R 0.5
+#define P_EPSILON 0.001
+
 
 enum HALO_TYPE{UP=0,DOWN,LEFT,RIGHT};
 
@@ -117,6 +120,9 @@ public:
             starterIndex=infoBlock->first_y*size + infoBlock->first_x +(size*(i+1));
         }
     }
+
+
+
 
 
     void parallelForSwap() {
@@ -476,6 +482,34 @@ public:
 
     void steering()
     {
+
+    }
+
+
+    void simulationInit()
+    {
+        for (int i = 0; i < 4; ++i) {
+            f[i].init(0);
+        }
+
+        r = P_R;
+        epsilon = P_EPSILON;
+
+        for (int i = 0; i < infoBlock->size_y*infoBlock->size_x; ++i) {
+
+                double h,z;
+                debrids.get(i,h);
+
+                if (h> 0.0)
+                {
+                    altitude.get(i,z);
+                    altitude.set(i,z-h);
+
+                }
+
+
+
+        }
 
     }
 
