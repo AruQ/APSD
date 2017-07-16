@@ -9,9 +9,14 @@
 
 using namespace std;
 
+
+
 class Reader
 {
 public:
+
+    unsigned int nRows;
+    unsigned int nCols;
 
     Reader(const char * path) :path(path), data(NULL)
     {
@@ -21,8 +26,10 @@ public:
 
     ~Reader()
     {
-        if (data != NULL)
-            delete [] data;
+        for (int i = 0; i < nRows; ++i) {
+            delete [] data[i];
+        }
+        delete [] data;
     }
 
 
@@ -33,7 +40,7 @@ public:
         ifstream myfile (path);
         int i = 0;
 
-        int index=0;
+        int row=0;
 
         if (myfile.is_open())
         {
@@ -47,16 +54,28 @@ public:
                     break;
                 case 1:
                     nRows= std::stoi(sep[1]);
-                    data = new float [nRows*nCols];
+                    data = new float* [nRows];
+                    break;
+                case 2:
+                    xllcorner= std::stof(sep[1]);
+                    break;
+                case 3:
+                    yllcorner= std::stof(sep[1]);
+                    break;
+                case 4:
+                    cellsize= std::stof(sep[1]);
+                    break;
+                case 5:
+                    NODATA_value= std::stof(sep[1]);
                     break;
                 default:
+                    data[row] = new float[nCols];
 
                     for(int col=0; col<nCols; col++)
                     {
-                        data[index] = std::stof(sep[col]);
-                        index++;
+                        data[row][col] = std::stof(sep[col]);
                     }
-
+                    row++;
                     break;
                 }
 
@@ -67,20 +86,104 @@ public:
 
     }
 
-    float* getData ()
+
+
+    float* getDataLinear ()
     {
+        int globalIndex = 0;
+        float * data = new float[nRows* nCols];
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
+                data[globalIndex++] = this->data[i][j];
+            }
+        }
         return data;
     }
 
 
-    friend std::ostream & operator <<( std::ostream &os, const Reader &reader )
+    void fillMatrix ()
+    {
+        if (nCols == nRows)
+            return;
+        float** tmp;
+        if (nCols > nRows)
+        {
+            tmp = new float* [nCols];
+            for (int i = 0; i < nCols; ++i) {
+               tmp[i] = new float[nCols];
+            }
+
+            int diff = nCols-nRows;
+
+            for(int i = 0;i <diff/2;i++)
+                for(int j = 0;j< nCols;j++)
+                    tmp[i][j] = data[0][j];
+
+            for(int i = nRows+diff/2;i <nCols;i++)
+                for(int j = 0;j< nCols;j++)
+                    tmp[i][j] = data[nRows-1][j];
+
+
+            for(int i = diff/2;i<nRows+diff/2;i++)
+                for(int j = 0;j< nCols;j++)
+                    tmp[i][j] = data[i-diff/2][j];
+
+
+        }
+
+        else
+        {
+            tmp = new float* [nRows];
+            for (int i = 0; i < nRows; ++i) {
+               tmp[i] = new float[nRows];
+            }
+
+            int diff = nRows-nCols;
+
+            for(int i = 0;i <nRows;i++)
+                for(int j = 0;j< diff/2;j++)
+                    tmp[i][j] = data[i][0];
+
+            for(int i = 0;i <nRows;i++)
+                for(int j = nCols+diff/2;j< nRows;j++)
+                    tmp[i][j] = data[i][nCols-1];
+
+
+            for(int i = 0;i<nRows;i++)
+                for(int j = diff/2;j< nCols+diff/2;j++)
+                    tmp[i][j] = data[i][j-diff/2];
+
+        }
+
+        for(int i =0;i<nRows;i++)
+        {
+            delete [] data[i];
+        }
+        delete [] data;
+        data = tmp;
+
+        nCols = nCols > nRows? nCols:nRows;
+        nRows = nCols > nRows? nCols:nRows;
+    }
+
+    float ** getData()
+    {
+        return data;
+    }
+
+    float getCellSize()
+    {
+        return cellsize;
+    }
+
+    friend std::ostream & operator <<( std::ostream &os, const Reader &matrix )
     {
 
-        os<<"Matrix di size: "<<reader.nRows<<" X "<<reader.nCols<<"\n";
+        os<<"Matrix di size: "<<matrix.nRows<<" X "<<matrix.nCols<<"\n";
 
-        for (int i = 0; i < reader.nRows; ++i) {
-            for (int j = 0; j < reader.nCols; ++j) {
-                os<<reader.data[i*reader.nCols+ j]<<" ";
+        for (int i = 0; i < matrix.nRows; ++i) {
+            for (int j = 0; j < matrix.nCols; ++j) {
+                os<<matrix.data[i][j]<<" ";
 
 
             }
@@ -90,13 +193,15 @@ public:
     }
 
 
-
-
-    unsigned int nRows;
-    unsigned int nCols;
 protected:
-    float * data;
-    const char* path;
+    float xllcorner;
+    float yllcorner;
+    float cellsize;
+    float NODATA_value;
+
+    float ** data;
+     const char* path;
+
 
 
     // You could also take an existing vector as a parameter.
@@ -116,3 +221,4 @@ protected:
 };
 
 #endif
+

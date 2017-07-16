@@ -514,7 +514,7 @@ void stampa (InfoBlock infoBlock,int rank)
 
 void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int size_y);
 
-void block_sending(Reader* reader, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag);
+void block_sending(float* data, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag);
 
 int main(int argc, char *argv[])
 {
@@ -587,9 +587,11 @@ int main(int argc, char *argv[])
     {
         readerZ.loadFromFile();
         readerH.loadFromFile();
+        readerZ.fillMatrix();
+        readerH.fillMatrix();
 
-        //        std::cout<<readerZ<<std::endl;
-        //        std::cout<<readerH<<std::endl;
+                std::cout<<readerZ<<std::endl;
+                std::cout<<readerH<<std::endl;
 
 
     }
@@ -610,9 +612,10 @@ int main(int argc, char *argv[])
 
     if (rank == MPI_root)
     {
-        block_sending(&readerZ,&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,0);
-        block_sending(&readerH,&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,1);
-        sciddica.initRoot(readerZ.getData(),readerH.getData(), readerZ.nCols);
+        block_sending(readerZ.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,0);
+        block_sending(readerH.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,1);
+        sciddica.initRoot(readerZ.getDataLinear(),readerH.getDataLinear(), readerZ.nCols);
+
     }
     if (rank != MPI_root)
     {
@@ -702,7 +705,7 @@ void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int
 }
 
 
-void block_sending(Reader* reader, InfoBlock * infoBlock, int num_procs, int size_x, MPI_Datatype & MPI_BLOCK_TYPE, int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag)
+void block_sending(float* data,InfoBlock * infoBlock, int num_procs, int size_x, MPI_Datatype & MPI_BLOCK_TYPE, int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag)
 {
 
 
@@ -720,7 +723,7 @@ void block_sending(Reader* reader, InfoBlock * infoBlock, int num_procs, int siz
 
 
         //        cout<<"sono rank="<<rank <<" e inizio da "<<starterIndex<<endl;
-        MPI_Send (&reader->getData()[starterIndex], 1, MPI_BLOCK_TYPE, dest, tag, MPI_COMM_CUBE);
+        MPI_Send (&data[starterIndex], 1, MPI_BLOCK_TYPE, dest, tag, MPI_COMM_CUBE);
         if ((dest+1) % infoBlock->cart_dimensions[0] ==0)
         {
             starterIndex = (dest+1) / infoBlock->cart_dimensions[1] * size_x * infoBlock->size_y;
