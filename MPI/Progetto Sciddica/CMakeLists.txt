@@ -1,17 +1,14 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.3)
+project(Project_Sciddica)
 
-project(Project)
-
-add_executable(mytest mainSciddica.cpp)
-
-# Require MPI for this project:
 find_package(MPI REQUIRED)
-set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
-set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
-include_directories(MPI_INCLUDE_PATH)
-target_link_libraries(mytest ${MPI_LIBRARIES}) 
+include_directories(${MPI_INCLUDE_PATH})
 
+SET(CMAKE_C_COMPILER mpicc)
+SET(CMAKE_CXX_COMPILER mpicxx)
 
-# Add a test:
-enable_testing()
-add_test(SimpleTest ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${CMAKE_CURRENT_BINARY_DIR}/mytest)
+set(SOURCE_FILES mainSciddica.cpp Reader.h)
+
+add_executable(sciddica ${SOURCE_FILES})
+
+TARGET_LINK_LIBRARIES(sciddica gomp)
