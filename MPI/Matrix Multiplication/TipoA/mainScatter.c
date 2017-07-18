@@ -10,7 +10,6 @@ inline int get (int i, int j, int nCol)
 }
 
 
-//COUNT E DISPLACEMENT SERVE A TUTTI I PROCESSI?
 
 int numnodes,myid,mpi_err;
 #define mpi_root 0
@@ -78,8 +77,6 @@ int main(int argc,char *argv[]){
     for(int i=1;i<numnodes;i++){
         displs[i]=counts[i-1]+displs[i-1];
     }
-
-//    printf("sono count di myid  %d count: %d e il mio displ è %d\n", myid,counts[myid], displs[myid]);
 
 
     local_a = (int*)malloc(sizeof(int)*counts[myid]);

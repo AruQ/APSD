@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-#define DIMENSION 8
+#define DIMENSION 200000000
 #define mpi_root 0
-#define toFind 2
+#define toFind 300
 
 int main(int argc, char* argv[]) {
 
@@ -14,11 +14,14 @@ int main(int argc, char* argv[]) {
     MPI_Request request;
     int *array, *local_array;
 
-
+    double start = 0, finish = 0, partialTime = 0;
 
     MPI_Init(&argc,&argv);
     MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     MPI_Comm_size(MPI_COMM_WORLD,&size);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
 
     int local_size = DIMENSION/size;
     if (rank == size-1)
@@ -31,7 +34,7 @@ int main(int argc, char* argv[]) {
 
         for (int i= 0; i< DIMENSION; i++)
         {
-            array[i] = i%(DIMENSION/2);
+            array[i] = i%(DIMENSION/10);
 
         }
     }
@@ -61,9 +64,19 @@ int main(int argc, char* argv[]) {
         MPI_Test(&request,&done,&status);
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    finish = MPI_Wtime();
+    partialTime = finish - start;
+
+    if(rank == mpi_root)
+    {
+      printf("Time = %f\n",partialTime );
+    }
+
     if (found != -1) {
         printf("P:%d stopped at global index %d \n",rank, found);
     }
+
     MPI_Finalize();
 
     if (rank==0)

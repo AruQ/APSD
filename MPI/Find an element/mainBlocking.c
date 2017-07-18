@@ -5,7 +5,7 @@
 #include <mpi.h>
 #define DIMENSION 200000000
 #define mpi_root 0
-#define toFind 3
+#define toFind 300
 
 int main(int argc, char* argv[]) {
 
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
         for (int i= 0; i< DIMENSION; i++)
         {
 
-            array[i] = i%(DIMENSION/2);
+            array[i] = i%(DIMENSION/10);
 //            if (array[i] == toFind)
 //                countsSerial++;
 

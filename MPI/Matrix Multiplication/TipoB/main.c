@@ -15,7 +15,7 @@ inline int get (int i, int j, int nCol)
 int numnodes,myid,mpi_err;
 #define mpi_root 0
 
-#define DIMENSION 8
+const int DIMENSION= 16*100;
 
 
 void init_it(int  *argc, char ***argv);
@@ -31,7 +31,7 @@ int main(int argc,char *argv[]){
     int * local_c;
     int * local_b;
     int * b, *a, *c;
-    int* counts;
+
     double start = 0, finish = 0, partialTime = 0;
 
     init_it(&argc,&argv);
@@ -47,32 +47,7 @@ int main(int argc,char *argv[]){
 
     b = (int*)malloc(sizeof(int)*DIMENSION * DIMENSION);
 
-    //    int* displs =(int*) malloc( numnodes * sizeof(int) );
 
-
-
-
-
-    //    counts=(int*)malloc(sizeof(int)*numnodes);
-
-    //    for (int i = 0; i < numnodes; ++i) {
-    //        counts[i] = DIMENSION/(numnodes);
-    //        if (i == numnodes-1)
-    //            counts[i] += DIMENSION%numnodes;
-
-    //        counts[i] *=DIMENSION;
-
-
-    //    }
-
-    //    displs[0]=0;
-    //    for(int i=1;i<numnodes;i++){
-    //        displs[i]=counts[i-1]+displs[i-1];
-    //    }
-
-
-
-    //    printf("sono count di myid  %d count: %d e il mio displ è %d\n", myid,counts[myid], displs[myid]);
 
 
     int nColumns = DIMENSION / sqrt(numnodes-1);
@@ -88,23 +63,23 @@ int main(int argc,char *argv[]){
         }
         c = (int*)malloc(sizeof(int)*DIMENSION * DIMENSION);
 
-        printf("sono qui\n");
+
 
         MPI_Type_vector(DIMENSION, nColumns, stride,MPI_INT,&columnsType);
         MPI_Type_commit(&columnsType);
 
         for (int dest =1; dest<numnodes; dest++ )
         {
+<<<<<<< HEAD
 
             int starterIndexB = (dest-1)*nColumns %DIMENSION;
+=======
+            int starterIndexB = ((dest-1)*nColumns) %DIMENSION;
+>>>>>>> 36876c916376594ba76978fde04205fdb558be27
             int starterIndexA = (dest-1)*nColumns *DIMENSION % (DIMENSION*DIMENSION);
             MPI_Send (&a[starterIndexA], nColumns*DIMENSION, MPI_INT, dest, 2, MPI_COMM_WORLD);
             MPI_Send (&b[starterIndexB], 1, columnsType, dest, 0, MPI_COMM_WORLD);
         }
-        //        for (int dest = 1; dest<numnodes; ++dest) {
-        //            MPI_Send(b, DIMENSION*DIMENSION, MPI_INT, dest, mpi_root, MPI_COMM_WORLD);
-
-        //        }
 
     }
 
@@ -120,6 +95,7 @@ int main(int argc,char *argv[]){
         MPI_Recv(local_a, nColumns*DIMENSION, MPI_INT, mpi_root, 2, MPI_COMM_WORLD, &status);
         MPI_Recv(local_b, DIMENSION*nColumns, MPI_INT, mpi_root, 0, MPI_COMM_WORLD, &status);
 
+<<<<<<< HEAD
        for (int i = 0; i < nColumns; ++i) {
            for (int j = 0; j < nColumns; ++j) {
 
@@ -130,6 +106,18 @@ int main(int argc,char *argv[]){
 
 
            }
+=======
+        for (int i = 0; i < nColumns; ++i) {
+            for (int j = 0; j < nColumns; ++j) {
+
+                local_c[get(i,j,nColumns)]=0;
+                for (int k = 0; k < DIMENSION; ++k) {
+                    local_c[get(i,j,nColumns)] += local_a[get(i,k,DIMENSION)] * local_b[get(j,k,DIMENSION)];
+                }
+
+
+            }
+>>>>>>> 36876c916376594ba76978fde04205fdb558be27
         }
 
         MPI_Send (local_c, nColumns*nColumns,MPI_INT, mpi_root, 1, MPI_COMM_WORLD);
@@ -158,21 +146,22 @@ int main(int argc,char *argv[]){
         }
     }
 
-    //    MPI_Scatterv(a,counts,displs, MPI_INT,local_a,counts[myid],MPI_INT, mpi_root,MPI_COMM_WORLD);
 
-    //    for (int i = 0; i < counts[myid]; ++i) {
+//    if (myid == mpi_root)
+//    {
+//        for (int i = 0; i< DIMENSION*DIMENSION; i++)
+//        {
+//            printf ("%d ", c[i]);
+//            if ((i+1)%DIMENSION ==0)
+//                printf ("\n");
+//        }
+//    }
 
-    //        local_c[i] = 0;
-    //    }
+        MPI_Barrier(MPI_COMM_WORLD);
+        finish = MPI_Wtime();
+        partialTime = finish - start;
 
-    //    for (int i = 0; i < counts[myid]/DIMENSION; ++i) {
-    //        for (int j = 0; j < DIMENSION; ++j) {
-    //            for (int k = 0; k < DIMENSION; ++k) {
-    //                local_c[get(i,j,DIMENSION)] += local_a[get(i,k,DIMENSION)] * b[get(k,j,DIMENSION)];
-
-    //            }
-    //        }
-
+<<<<<<< HEAD
     //    }
 
     //    mpi_err = MPI_Gatherv(local_c,counts[myid], MPI_INT, c,counts ,displs, MPI_INT, mpi_root,MPI_COMM_WORLD);
@@ -195,6 +184,12 @@ int main(int argc,char *argv[]){
     //    {
     //      printf("Time = %f\n",partialTime );
     //    }
+=======
+        if(myid == mpi_root)
+        {
+          printf("Time = %f\n",partialTime );
+        }
+>>>>>>> 36876c916376594ba76978fde04205fdb558be27
 
     mpi_err = MPI_Finalize();
     //
@@ -207,6 +202,9 @@ int main(int argc,char *argv[]){
     free(local_a);
     free(local_b);
     free(local_c);
+<<<<<<< HEAD
       //  delete [] counts;
       //  delete [] displs;
+=======
+>>>>>>> 36876c916376594ba76978fde04205fdb558be27
 }

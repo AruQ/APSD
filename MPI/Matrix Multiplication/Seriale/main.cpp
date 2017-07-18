@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define DIMENSION 5
+const int DIMENSION= 10000;
 
 int main (int argc, char** argv)
 {
@@ -39,12 +39,12 @@ int main (int argc, char** argv)
      printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
 
 
-     printf("Here is the result matrix:\n");
-     for (int i=0; i<DIMENSION; i++) {
-         for (int j=0; j<DIMENSION; j++)
-             printf("%d  ", c[i][j]);
-         printf ("\n");
-     }
+//     printf("Here is the result matrix:\n");
+//     for (int i=0; i<DIMENSION; i++) {
+//         for (int j=0; j<DIMENSION; j++)
+//             printf("%d  ", c[i][j]);
+//         printf ("\n");
+//     }
 
      for (int i = 0; i < DIMENSION; ++i) {
          delete [] a[i];

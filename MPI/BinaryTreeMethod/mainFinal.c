@@ -4,25 +4,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SIZE 10000
+const unsigned long long int SIZE= 400000000;
 
-//provare con 100000
 
 MPI_Status status;
 
 #define mpi_root 0
-inline int log2(int value)
+inline int log_2(unsigned long long int value)
 {
     return log(value) / log(2);
 }
 
-int binary_tree_method (int value, int rank, int numproc)
+long double binary_tree_method (unsigned long long int value, int rank, int numproc)
 {
 
-    int treeDepth = log2(SIZE);
+    int treeDepth = log_2(SIZE);
     int increment = 1;
 
-    int receivedValue;
+    unsigned long long int receivedValue;
 
     for (int i = 0; i< treeDepth; i++)
     {
@@ -34,13 +33,12 @@ int binary_tree_method (int value, int rank, int numproc)
             if (rank == receiver)
             {
                 MPI_Recv(&receivedValue, 1,
-                         MPI_INT, sender, 0, MPI_COMM_WORLD, &status);
-
+                         MPI_UNSIGNED_LONG_LONG, sender, 0, MPI_COMM_WORLD, &status);
                 value += receivedValue;
             }
             else if (rank == sender)
             {
-                MPI_Send(&value, 1, MPI_INT,
+                MPI_Send(&value, 1, MPI_UNSIGNED_LONG_LONG,
                          receiver, 0, MPI_COMM_WORLD);
             }
 
@@ -63,58 +61,93 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &numproc);
 
+    double start = 0, finish = 0, partialTime = 0;
 
-    int * data;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
+
+
+    unsigned long long int * data;
 
     int local_size = (SIZE/numproc);
-        if (rank == numproc-1)
-        {
-            local_size += SIZE%numproc;
-        }
 
     if (rank == mpi_root)
     {
-        data = (int*) malloc (sizeof(int) * SIZE);
-        for (int i = 0; i < SIZE; i++)
-            data[i] = i;
-
+        data = (unsigned long long int*) malloc (sizeof(unsigned long long int) * SIZE);
+        unsigned long long int * index = data;
+        for (long long i = 0; i < SIZE; i++)
+        {
+            *index = i;
+            index++;
+        }
         for (int i=1; i<numproc; i++)
         {
             if (i == numproc-1)
-                MPI_Send(&data[i*local_size], local_size+SIZE%numproc, MPI_INT,
+                MPI_Send(&data[i*local_size], local_size+SIZE%numproc, MPI_UNSIGNED_LONG_LONG,
                         i, mpi_root, MPI_COMM_WORLD);
             else
-                MPI_Send(&data[i*local_size], local_size, MPI_INT,
+                MPI_Send(&data[i*local_size], local_size, MPI_UNSIGNED_LONG_LONG,
                         i, mpi_root, MPI_COMM_WORLD);
 
         }
+    }
+
+    if (rank == numproc-1)
+    {
+        local_size += SIZE%numproc;
     }
 
     if (rank != mpi_root)
     {
-        data = (int*) malloc (sizeof(int) * local_size);
+        data = (unsigned long long int*) malloc (sizeof(unsigned long long int) * local_size);
         MPI_Recv(data, local_size,
-                 MPI_INT, mpi_root, 0, MPI_COMM_WORLD, &status);
+                 MPI_UNSIGNED_LONG_LONG, mpi_root, 0, MPI_COMM_WORLD, &status);
     }
 
-    int localSum =0;
-    for (int i = 0; i < local_size; ++i) {
-        localSum+= data[i];
+    unsigned long long int localSum =0;
+    unsigned long long int * index = data;
+    for (unsigned long long int i = 0; i < local_size; i++) {
+        localSum+= *index;
+        index++;
     }
 
-    int result = binary_tree_method(localSum, rank, numproc);
+
+    unsigned long long int result = binary_tree_method(localSum, rank, numproc);
+        MPI_Barrier(MPI_COMM_WORLD);
+
     MPI_Barrier(MPI_COMM_WORLD);
-
-    // Compute the correct result
-    int sum = 0;
-    for (int i = 0; i < SIZE; i++)
-        sum += data[i];
+    finish = MPI_Wtime();
+    partialTime = finish - start;
 
 
-    if (rank == mpi_root) {
-        printf("MPI Result     = %d\n", result);
-        printf("Correct Result = %d\n", sum);
+    if(rank == mpi_root)
+    {
+        unsigned long long int sum =0.0;
+        printf("Time = %f\n",partialTime );
+
+        //        start = MPI_Wtime();
+
+        index = data;
+        for (unsigned long long int i = 0; i < SIZE; i++)
+        {
+
+            sum += *index;
+            index++;
+        }
+
+        //        finish = MPI_Wtime();
+        //        partialTime = finish - start;
+
+        //        printf("Time Serial = %f\n",partialTime );
+
+        printf("MPI Result     = %llu\n", result);
+        printf("Correct Result = %llu\n", sum);
     }
+
+
+
+
     MPI::Finalize();
 
 
