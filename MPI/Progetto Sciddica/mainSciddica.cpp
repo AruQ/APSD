@@ -14,6 +14,8 @@
 #define P_R 0.5
 #define P_EPSILON 0.001
 
+#define MPI_root 0
+
 
 enum HALO_TYPE{UP=0,DOWN,LEFT,RIGHT};
 
@@ -30,6 +32,7 @@ struct InfoBlock
     int* cart_coordinates;
     int* cart_dimensions;
     int rank;
+    int numprocs;
 };
 
 
@@ -38,7 +41,7 @@ struct InfoHalo
     int   	neighbor[4];
     MPI_Request requests[4];
 };
-
+void receive_data_back(InfoBlock* infoBlock,float* data, int size_x,float* local_root_data);
 
 
 class Substate
@@ -244,7 +247,7 @@ public:
 
 
 
-    void block_receiving(int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag)
+    void block_receiving( MPI_Comm & MPI_COMM_CUBE, int tag)
     {
         MPI_Status status;
         MPI_Recv(current, infoBlock->size_x*infoBlock->size_y, MPI_FLOAT, MPI_root, tag, MPI_COMM_CUBE, &status);
@@ -302,6 +305,11 @@ public:
         }
 
 
+    }
+
+    void send_back_data(MPI_Comm& MPI_COMM_CUBE)
+    {
+        MPI_Send(current,infoBlock->size_x*infoBlock->size_y,MPI_FLOAT,MPI_root,infoBlock->rank*1000,MPI_COMM_CUBE);
     }
 
     bool sendCompleted()
@@ -375,6 +383,11 @@ public:
     }
 
 
+    float* getCurrent()
+    {
+        return current;
+    }
+
 
 
 };
@@ -390,19 +403,32 @@ private:
     Substate debrids;
     Substate f[NUMBER_OF_OUTFLOWS];
 
-    double epsilon;
-    double r;
+    float epsilon;
+    float r;
 
     InfoBlock* infoBlock;
+    float* data;
+    int size_x;
 
 public:
     CellularAutomata (InfoBlock* infoBlock) : infoBlock(infoBlock),altitude(infoBlock),
-        debrids(infoBlock)
+        debrids(infoBlock),data(NULL)
     {
         f[0].setInfoBlock(infoBlock);
         f[1].setInfoBlock(infoBlock);
         f[2].setInfoBlock(infoBlock);
         f[3].setInfoBlock(infoBlock);
+    }
+
+    void setData(float* data, int size_x)
+    {
+        this->data = data;
+        this->size_x = size_x;
+    }
+
+    float* getData()
+    {
+        return data;
     }
 
 
@@ -442,12 +468,12 @@ public:
                     cells_count++;
                 }
                 if (cells_count != 0)
-                    average /= cells_count;
+                    average /= (float)cells_count;
 
                 for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
                     if( (average<=u[n]) && (!eliminated_cells[n]) ){
                         eliminated_cells[n]=true;
-                        again=false;
+                        again=true;
                     }
         }while (again);
 
@@ -469,10 +495,19 @@ public:
         for(n=1; n< NUMBER_OF_OUTFLOWS ; n++)
         {
             f[NUMBER_OF_OUTFLOWS - n].getX(i,j,n, outFlows[0]);
-            f[n-1].getX(i,j,n, outFlows[1]);
+            f[n-1].get(i,j, outFlows[1]);
             h_next += outFlows[0]+outFlows[1];
+            cout << h_next<< endl;
         }
-
+        float tmp;
+        debrids.get(i,j,tmp);
+        static int count = 0;
+        if(tmp == h_next && tmp != 0)
+        {
+            cout <<"tmp "<< tmp << " h_next "<<h_next<<endl;
+            count++;
+            cout<<"couunt "<<count <<" rank "<<infoBlock->rank<<endl;
+        }
         debrids.set(i,j,h_next);
     }
 
@@ -481,30 +516,29 @@ public:
 
 
 
-//        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
-//            float val= 0.0f;
-//            debrids.get(i,val);
-//            val++;
-//            debrids.set(i,val);
+        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
+            float val= 0.0f;
+            debrids.get(i,val);
+            val++;
+            debrids.set(i,val);
+        }
+
+//        for (int i = 0; i < infoBlock->size_y; ++i) {
+//            for(int j=0;j< infoBlock->size_x;j++)
+//            {
+//                flowsComputation(i,j);
+//                widthUpdate(i,j);
+//            }
 
 //        }
-
-        for (int i = 0; i < infoBlock->size_y; ++i) {
-            for(int j=0;j< infoBlock->size_x;j++)
-            {
-                flowsComputation(i,j);
-                widthUpdate(i,j);
-            }
-
-        }
 
     }
 
 
-    void init (int & MPI_root, MPI_Comm & MPI_COMM_CUBE)
+    void init ( MPI_Comm & MPI_COMM_CUBE)
     {
-        altitude.block_receiving(MPI_root, MPI_COMM_CUBE, 0);
-        debrids.block_receiving(MPI_root, MPI_COMM_CUBE, 1);
+        altitude.block_receiving(MPI_COMM_CUBE, 0);
+        debrids.block_receiving(MPI_COMM_CUBE, 1);
     }
 
 
@@ -522,7 +556,7 @@ public:
 
 
 
-    void run (unsigned int STEPS, MPI_Comm & MPI_COMM_CUBE)
+    void run (unsigned int STEPS,unsigned int stepOffset, MPI_Comm & MPI_COMM_CUBE)
     {
 
         simulationInit();
@@ -541,6 +575,11 @@ public:
         //        //        sendCompleted(&debrids);
         recvCompleted(&debrids);
 
+//        if(infoBlock->rank != MPI_root)
+//            debrids.send_back_data(MPI_COMM_CUBE);
+//        else
+//            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+//        return;
         while(step < STEPS)
         {
             transitionFunction(MPI_COMM_CUBE);
@@ -557,9 +596,18 @@ public:
             sendCompleted(&debrids);
             recvCompleted(&debrids);
 
+            if((step+1) %stepOffset ==0)
+            {
+                if(infoBlock->rank != MPI_root)
+                    debrids.send_back_data(MPI_COMM_CUBE);
+                else
+                    receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+            }
             step++;
+
+
         }
-      //  debrids.stampaHalos();
+//        debrids.stampaHalos();
     }
 
 
@@ -580,6 +628,8 @@ public:
 
         r = P_R;
         epsilon = P_EPSILON;
+
+        cout << " r "<< r << "  eps "<<epsilon<< endl;
 
         for (int i = 0; i < infoBlock->size_y*infoBlock->size_x; ++i) {
 
@@ -632,9 +682,13 @@ void stampa (InfoBlock infoBlock,int rank)
     printf("size_col %d size_row %d \n\n", infoBlock.size_x, infoBlock.size_y);
 }
 
-void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int size_y);
+void block_distribution (InfoBlock& infoBlock,unsigned int size_x, unsigned int size_y,int numprocs);
 
-void block_sending(float* data, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag);
+void block_sending(float* data, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag);
+
+MPI_Comm MPI_COMM_CUBE;
+MPI_Datatype MPI_BLOCK_TYPE;
+
 
 int main(int argc, char *argv[])
 {
@@ -656,10 +710,7 @@ int main(int argc, char *argv[])
     int  cart_dimensions[NUMBER_OF_DIMENSIONS] = {0, 0};
     int  cart_periodicity[NUMBER_OF_DIMENSIONS]= {0, 0};
 
-    MPI_Comm MPI_COMM_CUBE;
-    //    MPI_Datatype MPI_BORDER;
-    //    MPI_Datatype MPI_COORDINATES;
-    MPI_Datatype MPI_BLOCK_TYPE;
+
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     //    MPI_Barrier(MPI_COMM_WORLD);
@@ -674,7 +725,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int MPI_root = num_procs -1;
+//    int MPI_root = 0; /////////////ATTENZIONE ROOT PRIMA ERA numprocs-1
 
     /* Create a 2D cartesian topology of the processes */
     MPI_Dims_create(num_procs, NUMBER_OF_DIMENSIONS, cart_dimensions);
@@ -725,15 +776,21 @@ int main(int argc, char *argv[])
         //        MPI_Recv(&reader.getRows(), 1, MPI_INT, MPI_root, 0, MPI_COMM_CUBE, &status);
     }
 
-    block_distribution(infoBlock, readerZ.nCols, readerZ.nRows);
+    block_distribution(infoBlock, readerZ.nCols, readerZ.nRows,num_procs);
     //        stampa(infoBlock, rank);
-    CellularAutomata sciddica (&infoBlock);
 
+    CellularAutomata sciddica (&infoBlock);
+    if(rank==MPI_root)
+        sciddica.setData(readerH.getDataLinear(),readerZ.nCols);
+
+
+    MPI_Type_vector(infoBlock.size_y, infoBlock.size_x, readerZ.nCols, MPI_FLOAT, &MPI_BLOCK_TYPE);
+    MPI_Type_commit(&MPI_BLOCK_TYPE);
 
     if (rank == MPI_root)
     {
-        block_sending(readerZ.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,0);
-        block_sending(readerH.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_root,MPI_COMM_CUBE,1);
+        block_sending(readerZ.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_COMM_CUBE,0);
+        block_sending(readerH.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_COMM_CUBE,1);
         sciddica.initRoot(readerZ.getDataLinear(),readerH.getDataLinear(), readerZ.nCols);
 
     }
@@ -742,9 +799,7 @@ int main(int argc, char *argv[])
         //TODO LA ROOT DEVE RIEMPIRE A MANO LA SUA
 
         //fare metodo che ricolleziona i dati nella matrice globale
-
-
-        sciddica.init(MPI_root, MPI_COMM_CUBE);
+        sciddica.init(MPI_COMM_CUBE);
         //            substate.block_receiving(MPI_root,MPI_COMM_CUBE,1);
 
 
@@ -754,7 +809,7 @@ int main(int argc, char *argv[])
     //    cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
 
     MPI_Barrier (MPI_COMM_CUBE);
-    sciddica.run(10,MPI_COMM_CUBE);
+    sciddica.run(totalSteps,stepOffset,MPI_COMM_CUBE);
 
 
     //    sciddica.transitionFunction(MPI_COMM_CUBE);
@@ -777,9 +832,11 @@ int main(int argc, char *argv[])
 
 
 
-void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int size_y)
+
+void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int size_y,int numprocs)
 {
 
+    infoBlock.numprocs = numprocs;
     infoBlock.size_x = size_x / infoBlock.cart_dimensions[1];
     infoBlock.size_y = size_y / infoBlock.cart_dimensions[0];
 
@@ -825,17 +882,14 @@ void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int
 }
 
 
-void block_sending(float* data,InfoBlock * infoBlock, int num_procs, int size_x, MPI_Datatype & MPI_BLOCK_TYPE, int & MPI_root, MPI_Comm & MPI_COMM_CUBE, int tag)
+void block_sending(float* data,InfoBlock * infoBlock, int num_procs, int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag)
 {
 
 
     //DEVE FARLO IL ROOT
 
-    MPI_Type_vector(infoBlock->size_y, infoBlock->size_x, size_x, MPI_FLOAT, &MPI_BLOCK_TYPE);
-    MPI_Type_commit(&MPI_BLOCK_TYPE);
 
-
-    int starterIndex = 0;
+    int starterIndex = infoBlock->size_x;
     for (int dest =0; dest<num_procs; dest++ )
     {
         if(dest== MPI_root)
@@ -854,11 +908,42 @@ void block_sending(float* data,InfoBlock * infoBlock, int num_procs, int size_x,
     }
 
 
-
-
-
-
-
 }
 
 
+void receive_data_back(InfoBlock* infoBlock,float* data, int size_x,float* local_root_data)
+{
+
+
+    int starterIndex = infoBlock->size_x;
+    for (int source = 1; source < infoBlock->numprocs ; ++source) {
+
+        MPI_Status status;
+        MPI_Recv(&data[starterIndex], 1, MPI_BLOCK_TYPE, source, source*1000, MPI_COMM_CUBE, &status);
+
+        if ((starterIndex+infoBlock->size_x) % size_x == 0)
+        {
+            starterIndex +=  size_x* (infoBlock->size_x-1);
+        }
+
+        starterIndex+=infoBlock->size_x;
+    }
+
+    starterIndex = 0;
+
+    for (int i = 0; i < infoBlock->size_y; ++i) {
+        for (int j = 0; j < infoBlock->size_x; ++j) {
+            data[starterIndex] = local_root_data[i*infoBlock->size_x+j];
+            starterIndex++;
+        }
+        starterIndex=infoBlock->first_y*size_x + infoBlock->first_x +(size_x*(i+1));
+    }
+
+    for(int i =0;i<size_x*size_x;i++){
+
+        cout<< data[i] << "  ";
+        if((i+1)%size_x==0)
+            cout << endl;
+    }
+
+}
