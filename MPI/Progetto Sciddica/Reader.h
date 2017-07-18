@@ -39,7 +39,6 @@ public:
         string line;
         ifstream myfile (path);
         int i = 0;
-
         int row=0;
 
         if (myfile.is_open())
@@ -50,30 +49,30 @@ public:
                 vector<string> sep = split(line, ' ');
                 switch (i) {
                 case 0:
-                    nCols= std::stoi(sep[1]);
+                    nCols= atoi(sep[1].c_str());
                     break;
                 case 1:
-                    nRows= std::stoi(sep[1]);
+                    nRows= atof(sep[1].c_str());
                     data = new float* [nRows];
                     break;
                 case 2:
-                    xllcorner= std::stof(sep[1]);
+                    xllcorner= atof(sep[1].c_str());
                     break;
                 case 3:
-                    yllcorner= std::stof(sep[1]);
+                    yllcorner= atof(sep[1].c_str());
                     break;
                 case 4:
-                    cellsize= std::stof(sep[1]);
+                    cellsize=atof(sep[1].c_str());
                     break;
                 case 5:
-                    NODATA_value= std::stof(sep[1]);
+                    NODATA_value= atof(sep[1].c_str());
                     break;
                 default:
                     data[row] = new float[nCols];
 
                     for(int col=0; col<nCols; col++)
                     {
-                        data[row][col] = std::stof(sep[col]);
+                        data[row][col] = atof(sep[col].c_str());
                     }
                     row++;
                     break;
@@ -286,4 +285,3 @@ protected:
 };
 
 #endif
-

@@ -145,7 +145,7 @@ public:
 
         for (int i = 0; i < 4; ++i)
         {
-            if (infoBlock->halo[i] && ((i == HALO_TYPE::UP)|| (i == HALO_TYPE::DOWN)))
+            if (infoBlock->halo[i] && ((i == UP)|| (i == DOWN)))
             {
                 halos[i] = new float [infoBlock->size_x];
 
@@ -154,7 +154,7 @@ public:
                 }
             }
 
-            else if (infoBlock->halo[i] && ((i == HALO_TYPE::LEFT)|| (i == HALO_TYPE::RIGHT)))
+            else if (infoBlock->halo[i] && ((i == LEFT)|| (i == RIGHT)))
             {
                 halos[i] = new float [infoBlock->size_y];
                 for (int j = 0; j < infoBlock->size_y; ++j) {
@@ -222,7 +222,7 @@ public:
             next[i] = val;
         }
     }
-    bool set (int i, int j, float & val)
+    bool set (int i, int j, float val)
     {
         if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
         {
@@ -232,7 +232,7 @@ public:
         return false;
     }
 
-    bool set (int i,float & val)
+    bool set (int i,float val)
     {
         if (i>=0 && i<infoBlock->size_y *infoBlock->size_x)
         {
@@ -405,14 +405,96 @@ public:
         f[3].setInfoBlock(infoBlock);
     }
 
+
+    void flowsComputation(int i,int j)
+    {
+        bool eliminated_cells[5]={false,false,false,false,false};
+        bool again;
+        int cells_count;
+        float average,m;
+        float u[5];
+        int n;
+        float z,h;
+
+        float valDebrid,valAlt;
+        debrids.get(i,j,valDebrid);
+        if(valDebrid <= epsilon)
+            return;
+
+        m = valDebrid - epsilon;
+        altitude.get(i,j,valAlt);
+        u[0] = valDebrid + epsilon;
+
+        for (n=1; n<NUMBER_OF_OUTFLOWS ; n++)
+        {
+           debrids.getX(i,j,n,h);
+           altitude.getX(i,j,n,z);
+           u[n] = z + h;
+        }
+        do{
+            again = false;
+            average = m;
+            cells_count = 0;
+
+            for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
+                if (!eliminated_cells[n]){
+                    average += u[n];
+                    cells_count++;
+                }
+                if (cells_count != 0)
+                    average /= cells_count;
+
+                for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
+                    if( (average<=u[n]) && (!eliminated_cells[n]) ){
+                        eliminated_cells[n]=true;
+                        again=false;
+                    }
+        }while (again);
+
+        for (n=1; n<NUMBER_OF_OUTFLOWS ; n++)
+            if (eliminated_cells[n])
+               f[n-1].set(i,j,0.0);
+            else
+               f[n-1].set(i,j,(average-u[n])*r);
+
+    }
+
+    void widthUpdate(int i, int j)
+    {
+        float h_next;
+        int n;
+
+        debrids.get(i,j,h_next);
+        float outFlows[2];
+        for(n=1; n< NUMBER_OF_OUTFLOWS ; n++)
+        {
+            f[NUMBER_OF_OUTFLOWS - n].getX(i,j,n, outFlows[0]);
+            f[n-1].getX(i,j,n, outFlows[1]);
+            h_next += outFlows[0]+outFlows[1];
+        }
+
+        debrids.set(i,j,h_next);
+    }
+
     void transitionFunction (MPI_Comm & MPI_COMM_CUBE)
     {
 
-        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
-            float val= 0.0f;
-            debrids.get(i,val);
-            val++;
-            debrids.set(i,val);
+
+
+//        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
+//            float val= 0.0f;
+//            debrids.get(i,val);
+//            val++;
+//            debrids.set(i,val);
+
+//        }
+
+        for (int i = 0; i < infoBlock->size_y; ++i) {
+            for(int j=0;j< infoBlock->size_x;j++)
+            {
+                flowsComputation(i,j);
+                widthUpdate(i,j);
+            }
 
         }
 
@@ -438,8 +520,12 @@ public:
         this->altitude.initRoot(z,size);
     }
 
+
+
     void run (unsigned int STEPS, MPI_Comm & MPI_COMM_CUBE)
     {
+
+        simulationInit();
         int step = 0;
 
 
@@ -460,6 +546,7 @@ public:
             transitionFunction(MPI_COMM_CUBE);
 
 
+            steering();
             debrids.parallelForSwap();
             //            cout<<debrids<<endl;
 
@@ -470,19 +557,18 @@ public:
             sendCompleted(&debrids);
             recvCompleted(&debrids);
 
-            steering();
-
-
-
-
             step++;
         }
-        debrids.stampaHalos();
+      //  debrids.stampaHalos();
     }
+
+
 
     void steering()
     {
-
+        for (int i = 0; i < 4; ++i) {
+            f[i].init(0);
+        }
     }
 
 
@@ -497,7 +583,7 @@ public:
 
         for (int i = 0; i < infoBlock->size_y*infoBlock->size_x; ++i) {
 
-                double h,z;
+                float h,z;
                 debrids.get(i,h);
 
                 if (h> 0.0)
@@ -624,8 +710,8 @@ int main(int argc, char *argv[])
         readerZ.fillMatrix();
         readerH.fillMatrix();
 
-                std::cout<<readerZ<<std::endl;
-                std::cout<<readerH<<std::endl;
+//                std::cout<<readerZ<<std::endl;
+//                std::cout<<readerH<<std::endl;
 
 
     }

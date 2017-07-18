@@ -6,6 +6,7 @@ include_directories(${MPI_INCLUDE_PATH})
 
 SET(CMAKE_C_COMPILER mpicc)
 SET(CMAKE_CXX_COMPILER mpicxx)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 set(SOURCE_FILES mainSciddica.cpp Reader.h)
 
