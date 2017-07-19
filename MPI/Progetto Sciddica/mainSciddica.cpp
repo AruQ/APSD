@@ -453,9 +453,9 @@ public:
 
         for (n=1; n<NUMBER_OF_OUTFLOWS ; n++)
         {
-           debrids.getX(i,j,n,h);
-           altitude.getX(i,j,n,z);
-           u[n] = z + h;
+            debrids.getX(i,j,n,h);
+            altitude.getX(i,j,n,z);
+            u[n] = z + h;
         }
         do{
             again = false;
@@ -467,21 +467,21 @@ public:
                     average += u[n];
                     cells_count++;
                 }
-                if (cells_count != 0)
-                    average /= (float)cells_count;
+            if (cells_count != 0)
+                average /= (float)cells_count;
 
-                for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
-                    if( (average<=u[n]) && (!eliminated_cells[n]) ){
-                        eliminated_cells[n]=true;
-                        again=true;
-                    }
+            for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
+                if( (average<=u[n]) && (!eliminated_cells[n]) ){
+                    eliminated_cells[n]=true;
+                    again=true;
+                }
         }while (again);
 
         for (n=1; n<NUMBER_OF_OUTFLOWS ; n++)
             if (eliminated_cells[n])
-               f[n-1].set(i,j,0.0);
+                f[n-1].set(i,j,0.0);
             else
-               f[n-1].set(i,j,(average-u[n])*r);
+                f[n-1].set(i,j,(average-u[n])*r);
 
     }
 
@@ -523,14 +523,14 @@ public:
             debrids.set(i,val);
         }
 
-//        for (int i = 0; i < infoBlock->size_y; ++i) {
-//            for(int j=0;j< infoBlock->size_x;j++)
-//            {
-//                flowsComputation(i,j);
-//                widthUpdate(i,j);
-//            }
+        //        for (int i = 0; i < infoBlock->size_y; ++i) {
+        //            for(int j=0;j< infoBlock->size_x;j++)
+        //            {
+        //                flowsComputation(i,j);
+        //                widthUpdate(i,j);
+        //            }
 
-//        }
+        //        }
 
     }
 
@@ -575,11 +575,13 @@ public:
         //        //        sendCompleted(&debrids);
         recvCompleted(&debrids);
 
-//        if(infoBlock->rank != MPI_root)
-//            debrids.send_back_data(MPI_COMM_CUBE);
-//        else
-//            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
-//        return;
+                if(infoBlock->rank != MPI_root)
+                    debrids.send_back_data(MPI_COMM_CUBE);
+                else
+                    receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+
+                cout<<endl;
+
         while(step < STEPS)
         {
             transitionFunction(MPI_COMM_CUBE);
@@ -607,7 +609,11 @@ public:
 
 
         }
-//        debrids.stampaHalos();
+//        if(infoBlock->rank != MPI_root)
+//            debrids.send_back_data(MPI_COMM_CUBE);
+//        else
+//            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+        //        debrids.stampaHalos();
     }
 
 
@@ -633,15 +639,15 @@ public:
 
         for (int i = 0; i < infoBlock->size_y*infoBlock->size_x; ++i) {
 
-                float h,z;
-                debrids.get(i,h);
+            float h,z;
+            debrids.get(i,h);
 
-                if (h> 0.0)
-                {
-                    altitude.get(i,z);
-                    altitude.set(i,z-h);
+            if (h> 0.0)
+            {
+                altitude.get(i,z);
+                altitude.set(i,z-h);
 
-                }
+            }
 
 
 
@@ -724,26 +730,29 @@ int main(int argc, char *argv[])
     /* Get the number of processes created by MPI and their rank */
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    num_procs--;
 
-//    int MPI_root = 0; /////////////ATTENZIONE ROOT PRIMA ERA numprocs-1
+    //    int MPI_root = 0; /////////////ATTENZIONE ROOT PRIMA ERA numprocs-1
 
     /* Create a 2D cartesian topology of the processes */
     MPI_Dims_create(num_procs, NUMBER_OF_DIMENSIONS, cart_dimensions);
 
+
     MPI_Cart_create(MPI_COMM_WORLD, NUMBER_OF_DIMENSIONS, cart_dimensions, cart_periodicity, 0, &MPI_COMM_CUBE);
 
 
+    if(rank!=num_procs)
+    {
+        /* Get relevant data from the created topology */
+        MPI_Cart_coords(MPI_COMM_CUBE, rank, NUMBER_OF_DIMENSIONS, cart_coordinates);
+        //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
+        MPI_Cart_rank(MPI_COMM_CUBE, cart_coordinates, &rank);
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &neighbor_up, &neighbor_down);
+        //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
+        //    printf("rank %d : up %d down %d \n", rank, neighbor_up, neighbor_down);
 
-    /* Get relevant data from the created topology */
-    MPI_Cart_coords(MPI_COMM_CUBE, rank, NUMBER_OF_DIMENSIONS, cart_coordinates);
-    //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
-    MPI_Cart_rank(MPI_COMM_CUBE, cart_coordinates, &rank);
-    MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &neighbor_up, &neighbor_down);
-    //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
-    //    printf("rank %d : up %d down %d \n", rank, neighbor_up, neighbor_down);
-
-    MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &neighbor_left, &neighbor_right);
-
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &neighbor_left, &neighbor_right);
+    }
 
 
     InfoBlock infoBlock;
@@ -761,13 +770,13 @@ int main(int argc, char *argv[])
         readerZ.fillMatrix();
         readerH.fillMatrix();
 
-//                std::cout<<readerZ<<std::endl;
-//                std::cout<<readerH<<std::endl;
+        //                std::cout<<readerZ<<std::endl;
+        //                std::cout<<readerH<<std::endl;
 
 
     }
-    MPI_Bcast(&readerZ.nCols, 1, MPI_INT,MPI_root, MPI_COMM_CUBE);
-    MPI_Bcast(&readerZ.nRows, 1, MPI_INT,MPI_root, MPI_COMM_CUBE);
+    MPI_Bcast(&readerZ.nCols, 1, MPI_INT,MPI_root, MPI_COMM_WORLD);
+    MPI_Bcast(&readerZ.nRows, 1, MPI_INT,MPI_root, MPI_COMM_WORLD);
 
     if (rank != MPI_root)
     {
@@ -799,7 +808,8 @@ int main(int argc, char *argv[])
         //TODO LA ROOT DEVE RIEMPIRE A MANO LA SUA
 
         //fare metodo che ricolleziona i dati nella matrice globale
-        sciddica.init(MPI_COMM_CUBE);
+        if(rank!=num_procs)
+            sciddica.init(MPI_COMM_CUBE);
         //            substate.block_receiving(MPI_root,MPI_COMM_CUBE,1);
 
 
@@ -807,9 +817,11 @@ int main(int argc, char *argv[])
     }
 
     //    cout<<"sono rank : "<< rank<<" \n"<<sciddica<<std::endl;
+    if(rank!=num_procs)
+        MPI_Barrier (MPI_COMM_CUBE);
 
-    MPI_Barrier (MPI_COMM_CUBE);
-    sciddica.run(totalSteps,stepOffset,MPI_COMM_CUBE);
+    if(rank!=num_procs)
+        sciddica.run(totalSteps,stepOffset,MPI_COMM_CUBE);
 
 
     //    sciddica.transitionFunction(MPI_COMM_CUBE);
