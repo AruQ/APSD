@@ -6,6 +6,8 @@
 #include <cmath>
 #include "Reader.h"
 
+#include "grafica/main.cpp"
+
 #define NUMBER_OF_DIMENSIONS 2
 
 #define VERTICAL 0
@@ -823,6 +825,11 @@ int main(int argc, char *argv[])
     if(rank!=num_procs)
         sciddica.run(totalSteps,stepOffset,MPI_COMM_CUBE);
 
+
+    if (rank == num_procs)
+    {
+        runGraphics();
+    }
 
     //    sciddica.transitionFunction(MPI_COMM_CUBE);
 
