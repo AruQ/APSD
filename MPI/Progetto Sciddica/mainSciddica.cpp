@@ -6,6 +6,7 @@
 #include <cmath>
 #include "Reader.h"
 
+#include <unistd.h>
 #include "grafica/main.cpp"
 
 #define NUMBER_OF_DIMENSIONS 2
@@ -483,7 +484,10 @@ public:
             if (eliminated_cells[n])
                 f[n-1].set(i,j,0.0);
             else
+            {
                 f[n-1].set(i,j,(average-u[n])*r);
+                cout << "------------"<<(average-u[n])*r<<endl;
+            }
 
     }
 
@@ -499,40 +503,39 @@ public:
             f[NUMBER_OF_OUTFLOWS - n].getX(i,j,n, outFlows[0]);
             f[n-1].get(i,j, outFlows[1]);
             h_next += outFlows[0]+outFlows[1];
-            cout << h_next<< endl;
+            //            cout << h_next<< endl;
         }
         float tmp;
         debrids.get(i,j,tmp);
-        static int count = 0;
-        if(tmp == h_next && tmp != 0)
-        {
-            cout <<"tmp "<< tmp << " h_next "<<h_next<<endl;
-            count++;
-            cout<<"couunt "<<count <<" rank "<<infoBlock->rank<<endl;
-        }
+//        static int count = 0;
+//        if(tmp == h_next && tmp != 0)
+//        {
+//            cout <<"tmp "<< tmp << " h_next "<<h_next<<endl;
+//            count++;
+//            cout<<"couunt "<<count <<" rank "<<infoBlock->rank<<endl;
+//        }
         debrids.set(i,j,h_next);
     }
 
     void transitionFunction (MPI_Comm & MPI_COMM_CUBE)
     {
+//        srand(time(NULL));
+//        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
+//            float val= 0.0f;
+//            int _rand = rand() % 10;
+//            debrids.get(i,val);
+//            val=20.0f*_rand;
+//            debrids.set(i,val);
+//        }
 
+                for (int i = 0; i < infoBlock->size_y; ++i) {
+                    for(int j=0;j< infoBlock->size_x;j++)
+                    {
+                        flowsComputation(i,j);
+                        widthUpdate(i,j);
+                    }
 
-
-        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
-            float val= 0.0f;
-            debrids.get(i,val);
-            val++;
-            debrids.set(i,val);
-        }
-
-        //        for (int i = 0; i < infoBlock->size_y; ++i) {
-        //            for(int j=0;j< infoBlock->size_x;j++)
-        //            {
-        //                flowsComputation(i,j);
-        //                widthUpdate(i,j);
-        //            }
-
-        //        }
+                }
 
     }
 
@@ -576,13 +579,14 @@ public:
 
         //        //        sendCompleted(&debrids);
         recvCompleted(&debrids);
+//        usleep(1000000);
+//        if(infoBlock->rank != MPI_root)
+//            debrids.send_back_data(MPI_COMM_CUBE);
+//        else
+//            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
 
-                if(infoBlock->rank != MPI_root)
-                    debrids.send_back_data(MPI_COMM_CUBE);
-                else
-                    receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
-
-                cout<<endl;
+//        cout<<endl;
+//        return;
 
         while(step < STEPS)
         {
@@ -606,15 +610,16 @@ public:
                     debrids.send_back_data(MPI_COMM_CUBE);
                 else
                     receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+                usleep(1000000);
             }
             step++;
 
 
         }
-//        if(infoBlock->rank != MPI_root)
-//            debrids.send_back_data(MPI_COMM_CUBE);
-//        else
-//            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+        //        if(infoBlock->rank != MPI_root)
+        //            debrids.send_back_data(MPI_COMM_CUBE);
+        //        else
+        //            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
         //        debrids.stampaHalos();
     }
 
@@ -958,11 +963,22 @@ void receive_data_back(InfoBlock* infoBlock,float* data, int size_x,float* local
         starterIndex=infoBlock->first_y*size_x + infoBlock->first_x +(size_x*(i+1));
     }
 
-    for(int i =0;i<size_x*size_x;i++){
+//    cout<<"size_x"<<size_x<<endl;
+//        for(int i =0;i<size_x*size_x;i++){
 
-        cout<< data[i] << "  ";
-        if((i+1)%size_x==0)
-            cout << endl;
-    }
+//            cout<< data[i] << " ";
+//            if((i+1)%size_x==0)
+//                cout << endl;
+//        }
+
+//    cout<<"size_x"<<size_x<<endl;
+//           for(int i =0;i<610*610;i++){
+
+//               cout<< i << " ";
+//               if((i+1)%610==0)
+//                   cout << endl;
+//           }
+    MPI_Request r;
+    MPI_Isend(data,size_x*size_x,MPI_FLOAT,infoBlock->numprocs,314,MPI_COMM_WORLD,&r);
 
 }

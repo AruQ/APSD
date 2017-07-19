@@ -2,7 +2,7 @@
 #ifndef TEMPERATURE_H
 #define TEMPERATURE_H
 
-#include "Matrix.h"
+#include "../Reader.h"
 // GLM Mathematics
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -10,37 +10,47 @@
 
 #include <climits>
 
-class Temperature : public Matrix
+
+
+class Temperature : public Reader
 {
 
 public:
 
-    Temperature (const char * path) :Matrix (path)
+    Temperature (const char * path) :Reader (path)
     {
 
+        loadFromFile();
+        fillMatrix();
 
-        cout<<"max = "<<maximum << "min= "<<minimum<<endl;
         setMin();
         setMax();
 
+        cout<<"max = "<<maximum << "min= "<<minimum<<endl;
 
-        size = (coords.nRows+1) * (coords.nCols+1);
+        coords.nCols = nCols+1;
+        coords.nRows = nRows+1;
+
+        size = coords.nCols * coords.nRows;
         temperatureColor = new float [size];
 
+//        updateColor(this->getDataLinear());
         computeColor();
+
+
 
     }
 
     void printColor ()
     {
         int globalIndex = 0;
-        for (int i = 0; i < coords.nRows; ++i) {
-            for (int j = 0; j < coords.nCols; ++j) {
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
                 cout<<temperatureColor[globalIndex++]<<" ";
-                if (globalIndex%coords.nCols ==0)
-                    cout<<endl;
+//                if (globalIndex%nCols ==0)
 
             }
+            cout<<endl;
         }
 
     }
@@ -68,22 +78,19 @@ public:
         //x' = x - min / (max-min)
 
 
-//        for (int i = 0; i < size; ++i) {
-//            if(temperatureColor[i] == 0.0f)
-//                temperatureColor[i]=0.5f;
-//            else
-//                temperatureColor[i] = 0.0f;
-//        }
         updateMinMax(temperature);
         int globalIndex = 0;
-        for (int i = 0; i < coords.nRows+1; ++i) {
-            for (int j = 0; j < coords.nCols+1; ++j) {
-                if (i>=coords.nRows || j>= coords.nCols || temperature[globalIndex] == 0.0f)
+        for (int i = 0; i < coords.nRows; ++i) {
+            for (int j = 0; j < coords.nCols; ++j) {
+                if (i>=nRows || j>= nCols || temperature[i*nCols+j] == 0.0f)
                 {
-                    temperatureColor[globalIndex++] = 0.0f;
+                    temperatureColor[i*coords.nCols+j] = 0.0f;
                 }
                 else
-                    temperatureColor[globalIndex++] = (temperature[globalIndex] - minimum) / (maximum - minimum);
+                {
+
+                    temperatureColor[i*coords.nCols+j] = (temperature[i*nCols+j] - minimum) / (maximum - minimum);
+                }
             }
         }
     }
@@ -97,13 +104,14 @@ protected:
     float minimum;
     float maximum;
 
+    Coordinates coords;
     size_t size;
 
     void setMin ()
     {
         bool first = false;
-        for (int i = 0; i < coords.nRows; ++i) {
-            for (int j = 0; j < coords.nCols; ++j) {
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
                 if (data[i][j] != NODATA_value)
                 {
                     if (!first)
@@ -123,8 +131,8 @@ protected:
     void setMax ()
     {
         bool first = false;
-        for (int i = 0; i < coords.nRows; ++i) {
-            for (int j = 0; j < coords.nCols; ++j) {
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
                 if (data[i][j] != NODATA_value)
                 {
                     if (!first)
@@ -145,14 +153,24 @@ protected:
     {
         //x' = x - min / (max-min)
         int globalIndex = 0;
-        for (int i = 0; i < coords.nRows+1; ++i) {
-            for (int j = 0; j < coords.nCols+1; ++j) {
-                if (i>=coords.nRows || j>= coords.nCols || data[i][j] == 0.0f)
+
+        float * tmp = this->getDataLinear();
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
+                if (tmp[i*nCols+j] != data[i][j])
+                    cout<<"Mannaia la puttana "<<i<<"  "<<j<<endl;
+            }
+        }
+
+//        float* tmp = getDataLinear();
+        for (int i = 0; i < coords.nRows; ++i) {
+            for (int j = 0; j < coords.nCols; ++j) {
+                if (i>=nRows || j>= nCols || data[i][j] == 0.0f)
                 {
-                    temperatureColor[globalIndex++] = 0.0f;
+                    temperatureColor[i*coords.nCols+j] = 0.0f;
                 }
                 else
-                    temperatureColor[globalIndex++] = (data[i][j] - minimum) / (maximum - minimum);
+                    temperatureColor[i*coords.nCols+j] = (data[i][j] - minimum) / (maximum - minimum);
             }
         }
 
@@ -163,7 +181,7 @@ protected:
     {
 
         bool first = false;
-        for (int i = 0; i < coords.nRows*coords.nCols; ++i) {
+        for (int i = 0; i < nRows*nCols; ++i) {
 
                 if (temperature[i] != NODATA_value)
                 {

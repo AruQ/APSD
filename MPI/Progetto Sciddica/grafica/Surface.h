@@ -1,30 +1,39 @@
 #ifndef SURFACE_H
 #define SURFACE_H
 
-#include "Matrix.h"
+#include "../Reader.h"
 #include "Temperature.h"
 // GLM Mathematics
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-class Surface : public Matrix
+
+class Surface : public Reader
 {
 
 public:
 
-    Surface (const char * path) :Matrix (path)
+    Surface (const char * path) :Reader (path)
     {
-        coordsAltitude.nCols = coords.nCols+1;
-        coordsAltitude.nRows = coords.nRows+1;
+
+
+
+
+    }
+
+    void initialize ()
+    {
+        loadFromFile();
+        fillMatrix();
+        coordsAltitude.nCols = nCols+1;
+        coordsAltitude.nRows = nRows+1;
         VBOVertices = NULL;
         indicesEBO = NULL;
         temperature = NULL;
 
 
         allocMatrix();
-
-
 
     }
 
@@ -95,13 +104,13 @@ public:
         }
     }
 
-    void addMatrix (Matrix & m)
+    void addMatrix (Reader & m)
     {
-        assert(coords.nCols == m.getCoordinates().nCols && coords.nRows == m.getCoordinates().nRows);
+        assert(nCols == m.nCols && nRows == m.nRows);
 
-        cout<<coords.nRows <<"  "<<coords.nCols<<" - "<<m.getCoordinates().nRows<<" "<<m.getCoordinates().nCols<<endl;
-        for (int i = 0; i < coords.nRows; ++i) {
-            for (int j = 0; j < coords.nCols; ++j) {
+        cout<<nRows <<"  "<<nCols<<" - "<<m.nRows<<" "<<m.nCols<<endl;
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
                 data[i][j] += m.getData()[i][j];
             }
 
@@ -139,6 +148,16 @@ public:
     void setTemperature(Temperature* _temperature)
     {
         this->temperature = _temperature;
+        int globalIndex = 0;
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
+//                if (temperature->getData()[i][j] != globalIndex++)
+//                cout<<"ho sbagliato sono io che sono diverso "<<globalIndex-1<<" "<<endl;
+//                if (globalIndex%nCols ==0)
+
+            }
+//            cout<<endl;
+        }
     }
 
 
@@ -205,8 +224,8 @@ protected:
     void setMinMax ()
     {
         bool first = true;
-        for (int i = 0; i < coords.nRows; ++i) {
-            for (int j = 0; j < coords.nCols; ++j) {
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
                 if (data[i][j] != NODATA_value)
                 {
                     if (first)
@@ -232,8 +251,8 @@ protected:
     void setMinMaxVertices ()
     {
         bool first = true;
-        for (int i = 0; i < coords.nRows; ++i) {
-            for (int j = 0; j < coords.nCols; ++j) {
+        for (int i = 0; i < nRows; ++i) {
+            for (int j = 0; j < nCols; ++j) {
                 if (data[i][j] != NODATA_value)
                 {
                     if (first)
@@ -381,7 +400,7 @@ protected:
         for (int _i = -1; _i <= 0; ++_i) {
             for (int _j = -1; _j <= 0; ++_j) {
                 //                printf ("Sono cella (%d, %d) e sto sommando (%d,%d) \n", i,j,i+_i,j+_j);
-                if(i+_i >=0 && i+_i <coords.nRows && j+_j >=0 && j+_j <coords.nCols )
+                if(i+_i >=0 && i+_i <nRows && j+_j >=0 && j+_j <nCols )
                 {
                     if (data[i+_i][j+_j] !=NODATA_value)
                     {

@@ -8,9 +8,12 @@
 #include <sstream>
 
 using namespace std;
+struct Coordinates
+{
+    unsigned int nRows;
+    unsigned int nCols;
 
-
-
+};
 class Reader
 {
 public:
@@ -90,13 +93,13 @@ public:
     float* getDataLinear ()
     {
         int globalIndex = 0;
-        float * data = new float[nRows* nCols];
+        float * _data = new float[nRows* nCols];
         for (int i = 0; i < nRows; ++i) {
             for (int j = 0; j < nCols; ++j) {
-                data[globalIndex++] = this->data[i][j];
+                _data[globalIndex++] = this->data[i][j];
             }
         }
-        return data;
+        return _data;
     }
 
 
@@ -258,6 +261,8 @@ public:
 
 
 protected:
+
+
     float xllcorner;
     float yllcorner;
     float cellsize;
