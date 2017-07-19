@@ -56,7 +56,7 @@ public:
                     break;
                 case 1:
                     nRows= atof(sep[1].c_str());
-                    data = new float* [nRows];
+                    data = new double* [nRows];
                     break;
                 case 2:
                     xllcorner= atof(sep[1].c_str());
@@ -71,7 +71,7 @@ public:
                     NODATA_value= atof(sep[1].c_str());
                     break;
                 default:
-                    data[row] = new float[nCols];
+                    data[row] = new double[nCols];
 
                     for(int col=0; col<nCols; col++)
                     {
@@ -90,10 +90,10 @@ public:
 
 
 
-    float* getDataLinear ()
+    double* getDataLinear ()
     {
         int globalIndex = 0;
-        float * _data = new float[nRows* nCols];
+        double * _data = new double[nRows* nCols];
         for (int i = 0; i < nRows; ++i) {
             for (int j = 0; j < nCols; ++j) {
                 _data[globalIndex++] = this->data[i][j];
@@ -107,12 +107,12 @@ public:
     {
         if (nCols == nRows)
             return;
-        float** tmp;
+        double** tmp;
         if (nCols > nRows)
         {
-            tmp = new float* [nCols];
+            tmp = new double* [nCols];
             for (int i = 0; i < nCols; ++i) {
-               tmp[i] = new float[nCols];
+               tmp[i] = new double[nCols];
             }
 
             int diff = nCols-nRows;
@@ -135,9 +135,9 @@ public:
 
         else
         {
-            tmp = new float* [nRows];
+            tmp = new double* [nRows];
             for (int i = 0; i < nRows; ++i) {
-               tmp[i] = new float[nRows];
+               tmp[i] = new double[nRows];
             }
 
             int diff = nRows-nCols;
@@ -172,12 +172,12 @@ public:
     {
         if (nCols == nRows)
             return;
-        float** tmp;
+        double** tmp;
         if (nCols > nRows)
         {
-            tmp = new float* [nCols];
+            tmp = new double* [nCols];
             for (int i = 0; i < nCols; ++i) {
-               tmp[i] = new float[nCols];
+               tmp[i] = new double[nCols];
             }
 
             int diff = nCols-nRows;
@@ -200,9 +200,9 @@ public:
 
         else
         {
-            tmp = new float* [nRows];
+            tmp = new double* [nRows];
             for (int i = 0; i < nRows; ++i) {
-               tmp[i] = new float[nRows];
+               tmp[i] = new double[nRows];
             }
 
             int diff = nRows-nCols;
@@ -233,12 +233,12 @@ public:
         nRows = nCols > nRows? nCols:nRows;
     }
 
-    float ** getData()
+    double ** getData()
     {
         return data;
     }
 
-    float getCellSize()
+    double getCellSize()
     {
         return cellsize;
     }
@@ -263,12 +263,12 @@ public:
 protected:
 
 
-    float xllcorner;
-    float yllcorner;
-    float cellsize;
-    float NODATA_value;
+    double xllcorner;
+    double yllcorner;
+    double cellsize;
+    double NODATA_value;
 
-    float ** data;
+    double ** data;
      const char* path;
 
 

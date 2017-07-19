@@ -10,7 +10,7 @@
 #include "grafica/main.cpp"
 
 #define NUMBER_OF_DIMENSIONS 2
-
+#define SIZE_OF_NEIGHBORHOOD 5
 #define VERTICAL 0
 #define HORIZONTAL 1
 
@@ -44,7 +44,7 @@ struct InfoHalo
     int   	neighbor[4];
     MPI_Request requests[4];
 };
-void receive_data_back(InfoBlock* infoBlock,float* data, int size_x,float* local_root_data);
+void receive_data_back(InfoBlock* infoBlock,double* data, int size_x,double* local_root_data);
 
 
 class Substate
@@ -52,10 +52,10 @@ class Substate
 private:
 
     static int ID;
-    const int neighborhoodPattern[4][2]=
-    {{-1,0},{0,-1}, {0,1},{1,0}}; //CONTROLARE ORDINE
-    float * current;
-    float * next;
+    const int neighborhoodPattern[SIZE_OF_NEIGHBORHOOD][2]=
+    {{0,0},{-1,0},{0,-1}, {0,1},{1,0}}; //CONTROLARE ORDINE
+    double * current;
+    double * next;
     int size;
     InfoBlock* infoBlock;
     InfoHalo infoSendHalo;
@@ -69,7 +69,7 @@ private:
 
 
 
-    float * halos[4];
+    double * halos[4];
 
 public:
 
@@ -102,7 +102,7 @@ public:
         }
     }
 
-    void setMatrix (float * matrix) //non andare in segfault su submatrix non allocato(se è vero)
+    void setMatrix (double * matrix) //non andare in segfault su submatrix non allocato(se è vero)
     {
 
         for (int i = 0; i < size; ++i) {
@@ -111,7 +111,7 @@ public:
         }
     }
 
-    void initRoot(float * matrix, int size)
+    void initRoot(double * matrix, int size)
     {
         int starterIndex = infoBlock->first_y*size + infoBlock->first_x;
 
@@ -146,14 +146,14 @@ public:
         myid = ID++;
         infoBlock = _infoBlock;
         size = infoBlock->size_x * infoBlock->size_y;
-        current= new float[size];
-        next = new float [size];
+        current= new double[size];
+        next = new double [size];
 
         for (int i = 0; i < 4; ++i)
         {
             if (infoBlock->halo[i] && ((i == UP)|| (i == DOWN)))
             {
-                halos[i] = new float [infoBlock->size_x];
+                halos[i] = new double [infoBlock->size_x];
 
                 for (int j = 0; j < infoBlock->size_x; ++j) {
                     halos[i][j] = 0.0f;
@@ -162,7 +162,7 @@ public:
 
             else if (infoBlock->halo[i] && ((i == LEFT)|| (i == RIGHT)))
             {
-                halos[i] = new float [infoBlock->size_y];
+                halos[i] = new double [infoBlock->size_y];
                 for (int j = 0; j < infoBlock->size_y; ++j) {
                     halos[i][j] = 0.0f;
                 }
@@ -173,14 +173,14 @@ public:
             }
         }
 
-        MPI_Type_vector(infoBlock->size_y, 1, infoBlock->size_x, MPI_FLOAT, &MPI_VERTICAL_BORDER);
+        MPI_Type_vector(infoBlock->size_y, 1, infoBlock->size_x, MPI_DOUBLE, &MPI_VERTICAL_BORDER);
         MPI_Type_commit(&MPI_VERTICAL_BORDER);
 
-        MPI_Type_contiguous(infoBlock->size_x, MPI_FLOAT, &MPI_HORIZONTAL_BORDER);
+        MPI_Type_contiguous(infoBlock->size_x, MPI_DOUBLE, &MPI_HORIZONTAL_BORDER);
         MPI_Type_commit(&MPI_HORIZONTAL_BORDER);
     }
 
-    bool get(int i,int j,  float & val)
+    bool get(int i,int j,  double & val)
     {
         if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
         {
@@ -190,7 +190,7 @@ public:
         return false;
 
     }
-    bool get(int i, float & val)
+    bool get(int i, double & val)
     {
         if (i>=0 && i<infoBlock->size_y *infoBlock->size_x)
         {
@@ -201,7 +201,28 @@ public:
 
     }
 
-    bool getX(int i, int j, int n, float & val)
+    bool getNext(int i,int j,  double & val)
+    {
+        if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
+        {
+            val= next [i*infoBlock->size_x + j];
+            return true;
+        }
+        return false;
+
+    }
+    bool getNext(int i, double & val)
+    {
+        if (i>=0 && i<infoBlock->size_y *infoBlock->size_x)
+        {
+            val= next [i];
+            return true;
+        }
+        return false;
+
+    }
+
+    bool getX(int i, int j, int n, double & val)
     {
 
         if (n>4)
@@ -221,14 +242,35 @@ public:
 
     }
 
-    void init(float val)
+
+    bool getNextX(int i, int j, int n, double & val)
+    {
+
+        if (n>4)
+            return false;
+        int newI = i+neighborhoodPattern[n][0];
+        int newJ = j+neighborhoodPattern[n][1];
+        if (getNext(newI, newJ, val)) //se il vicino si trova nella sottomatrice
+        {
+            return true;
+        }
+        if(halos[n]== NULL) //se il vicino è fuori dai bordi
+        {
+            return false;
+        }
+        val= halos[n][j]; //assegna il valore
+        return true;
+
+    }
+
+    void init(double val)
     {
         for (int i = 0; i < size; ++i) {
             current[i] = val;
             next[i] = val;
         }
     }
-    bool set (int i, int j, float val)
+    bool set (int i, int j, double val)
     {
         if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
         {
@@ -238,7 +280,7 @@ public:
         return false;
     }
 
-    bool set (int i,float val)
+    bool set (int i,double val)
     {
         if (i>=0 && i<infoBlock->size_y *infoBlock->size_x)
         {
@@ -253,7 +295,7 @@ public:
     void block_receiving( MPI_Comm & MPI_COMM_CUBE, int tag)
     {
         MPI_Status status;
-        MPI_Recv(current, infoBlock->size_x*infoBlock->size_y, MPI_FLOAT, MPI_root, tag, MPI_COMM_CUBE, &status);
+        MPI_Recv(current, infoBlock->size_x*infoBlock->size_y, MPI_DOUBLE, MPI_root, tag, MPI_COMM_CUBE, &status);
         for (int i = 0; i < infoBlock->size_x* infoBlock->size_y; ++i) {
             next[i] = current[i];
         }
@@ -302,7 +344,7 @@ public:
                 int sender = (i%2==0? i+1:i-1);
                 int tag = myid+myid*sender+infoBlock->rank;
 
-                MPI_Irecv(halos[i],infoBlock->size_x,MPI_FLOAT,infoRecvHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoRecvHalo.requests[i]);
+                MPI_Irecv(halos[i],infoBlock->size_x,MPI_DOUBLE,infoRecvHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoRecvHalo.requests[i]);
 
             }
         }
@@ -312,7 +354,7 @@ public:
 
     void send_back_data(MPI_Comm& MPI_COMM_CUBE)
     {
-        MPI_Send(current,infoBlock->size_x*infoBlock->size_y,MPI_FLOAT,MPI_root,infoBlock->rank*1000,MPI_COMM_CUBE);
+        MPI_Send(current,infoBlock->size_x*infoBlock->size_y,MPI_DOUBLE,MPI_root,infoBlock->rank*1000,MPI_COMM_CUBE);
     }
 
     bool sendCompleted()
@@ -386,7 +428,7 @@ public:
     }
 
 
-    float* getCurrent()
+    double* getCurrent()
     {
         return current;
     }
@@ -406,11 +448,11 @@ private:
     Substate debrids;
     Substate f[NUMBER_OF_OUTFLOWS];
 
-    float epsilon;
-    float r;
+    double epsilon;
+    double r;
 
     InfoBlock* infoBlock;
-    float* data;
+    double* data;
     int size_x;
 
 public:
@@ -423,13 +465,13 @@ public:
         f[3].setInfoBlock(infoBlock);
     }
 
-    void setData(float* data, int size_x)
+    void setData(double* data, int size_x)
     {
         this->data = data;
         this->size_x = size_x;
     }
 
-    float* getData()
+    double* getData()
     {
         return data;
     }
@@ -440,73 +482,83 @@ public:
         bool eliminated_cells[5]={false,false,false,false,false};
         bool again;
         int cells_count;
-        float average,m;
-        float u[5];
+        double average,m;
+        double u[5];
         int n;
-        float z,h;
+        double z,h;
 
-        float valDebrid,valAlt;
+        double valDebrid,valAlt;
         debrids.get(i,j,valDebrid);
         if(valDebrid <= epsilon)
             return;
 
         m = valDebrid - epsilon;
         altitude.get(i,j,valAlt);
-        u[0] = valDebrid + epsilon;
+        u[0] = valAlt + epsilon;
 
-        for (n=1; n<NUMBER_OF_OUTFLOWS ; n++)
+        for (n=1; n<SIZE_OF_NEIGHBORHOOD ; n++)
         {
             debrids.getX(i,j,n,h);
             altitude.getX(i,j,n,z);
             u[n] = z + h;
+//            cout <<"u[n] "<< u[n]<<endl;
         }
         do{
             again = false;
             average = m;
             cells_count = 0;
 
-            for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
+            for (n=0; n<SIZE_OF_NEIGHBORHOOD ; n++)
                 if (!eliminated_cells[n]){
                     average += u[n];
                     cells_count++;
                 }
             if (cells_count != 0)
-                average /= (float)cells_count;
+            {
+                average /= cells_count;
+            }
 
-            for (n=0; n<NUMBER_OF_OUTFLOWS ; n++)
-                if( (average<=u[n]) && (!eliminated_cells[n]) ){
+            for (n=0; n<SIZE_OF_NEIGHBORHOOD ; n++)
+                if( average<=u[n] && !eliminated_cells[n] ){
                     eliminated_cells[n]=true;
                     again=true;
+//                    cout<<"average"<<average<<endl;
                 }
         }while (again);
 
-        for (n=1; n<NUMBER_OF_OUTFLOWS ; n++)
+        for (n=1; n<SIZE_OF_NEIGHBORHOOD ; n++)
             if (eliminated_cells[n])
+            {
                 f[n-1].set(i,j,0.0);
+            }
             else
             {
                 f[n-1].set(i,j,(average-u[n])*r);
-                cout << "------------"<<(average-u[n])*r<<endl;
+//                cout << "------------"<<(average-u[n])*r<<endl;
+//                double tmp;
+//                f[n-1].get(i,j,tmp);
+//                if(tmp!=0)
+//                                cout << "------------"<<tmp<<endl;
             }
 
     }
 
     void widthUpdate(int i, int j)
     {
-        float h_next;
+        double h_next;
         int n;
 
         debrids.get(i,j,h_next);
-        float outFlows[2];
-        for(n=1; n< NUMBER_OF_OUTFLOWS ; n++)
+        double outFlows[2];
+        for(n=1; n< SIZE_OF_NEIGHBORHOOD ; n++)
         {
-            f[NUMBER_OF_OUTFLOWS - n].getX(i,j,n, outFlows[0]);
-            f[n-1].get(i,j, outFlows[1]);
-            h_next += outFlows[0]+outFlows[1];
-            //            cout << h_next<< endl;
+            f[NUMBER_OF_OUTFLOWS - n].getNextX(i,j,n, outFlows[0]);
+            f[n-1].getNext(i,j, outFlows[1]);
+            h_next += outFlows[0]-outFlows[1];
         }
-        float tmp;
-        debrids.get(i,j,tmp);
+//        h_next += delta;
+//        double tmp;
+//        debrids.get(i,j,tmp);
 //        static int count = 0;
 //        if(tmp == h_next && tmp != 0)
 //        {
@@ -521,7 +573,7 @@ public:
     {
 //        srand(time(NULL));
 //        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
-//            float val= 0.0f;
+//            DOUBLE val= 0.0f;
 //            int _rand = rand() % 10;
 //            debrids.get(i,val);
 //            val=20.0f*_rand;
@@ -532,6 +584,13 @@ public:
                     for(int j=0;j< infoBlock->size_x;j++)
                     {
                         flowsComputation(i,j);
+                    }
+
+                }
+
+                for (int i = 0; i < infoBlock->size_y; ++i) {
+                    for(int j=0;j< infoBlock->size_x;j++)
+                    {
                         widthUpdate(i,j);
                     }
 
@@ -547,13 +606,13 @@ public:
     }
 
 
-    void init (float * z, float * h)
+    void init (double * z, double * h)
     {
         this->debrids.setMatrix(h);
         this->altitude.setMatrix(z);
     }
 
-    void initRoot (float * z, float * h, int size)
+    void initRoot (double * z, double * h, int size)
     {
         this->debrids.initRoot(h,size);
         this->altitude.initRoot(z,size);
@@ -610,7 +669,7 @@ public:
                     debrids.send_back_data(MPI_COMM_CUBE);
                 else
                     receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
-                usleep(1000000);
+                usleep(100000);
             }
             step++;
 
@@ -646,7 +705,7 @@ public:
 
         for (int i = 0; i < infoBlock->size_y*infoBlock->size_x; ++i) {
 
-            float h,z;
+            double h,z;
             debrids.get(i,h);
 
             if (h> 0.0)
@@ -697,7 +756,7 @@ void stampa (InfoBlock infoBlock,int rank)
 
 void block_distribution (InfoBlock& infoBlock,unsigned int size_x, unsigned int size_y,int numprocs);
 
-void block_sending(float* data, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag);
+void block_sending(double* data, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag);
 
 MPI_Comm MPI_COMM_CUBE;
 MPI_Datatype MPI_BLOCK_TYPE;
@@ -800,7 +859,7 @@ int main(int argc, char *argv[])
         sciddica.setData(readerH.getDataLinear(),readerZ.nCols);
 
 
-    MPI_Type_vector(infoBlock.size_y, infoBlock.size_x, readerZ.nCols, MPI_FLOAT, &MPI_BLOCK_TYPE);
+    MPI_Type_vector(infoBlock.size_y, infoBlock.size_x, readerZ.nCols, MPI_DOUBLE, &MPI_BLOCK_TYPE);
     MPI_Type_commit(&MPI_BLOCK_TYPE);
 
     if (rank == MPI_root)
@@ -906,7 +965,7 @@ void block_distribution (InfoBlock & infoBlock,unsigned int size_x, unsigned int
 }
 
 
-void block_sending(float* data,InfoBlock * infoBlock, int num_procs, int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag)
+void block_sending(double* data,InfoBlock * infoBlock, int num_procs, int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag)
 {
 
 
@@ -935,7 +994,7 @@ void block_sending(float* data,InfoBlock * infoBlock, int num_procs, int size_x,
 }
 
 
-void receive_data_back(InfoBlock* infoBlock,float* data, int size_x,float* local_root_data)
+void receive_data_back(InfoBlock* infoBlock,double* data, int size_x,double* local_root_data)
 {
 
 
@@ -979,6 +1038,6 @@ void receive_data_back(InfoBlock* infoBlock,float* data, int size_x,float* local
 //                   cout << endl;
 //           }
     MPI_Request r;
-    MPI_Isend(data,size_x*size_x,MPI_FLOAT,infoBlock->numprocs,314,MPI_COMM_WORLD,&r);
+    MPI_Isend(data,size_x*size_x,MPI_DOUBLE,infoBlock->numprocs,314,MPI_COMM_WORLD,&r);
 
 }

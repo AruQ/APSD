@@ -56,13 +56,13 @@ bool requestReceive = false;
 int updated = 0;
 
 int size;
-float * temp;
+double * temp;
 MPI_Request req;
 
 
 void receive (/*MPI_Comm & comm*/)
 {
-    MPI_Irecv(temp, size, MPI_FLOAT, 0, 314, MPI_COMM_WORLD, &req);
+    MPI_Irecv(temp, size, MPI_DOUBLE, 0, 314, MPI_COMM_WORLD, &req);
     requestReceive = true;
     updated=0;
 }
@@ -75,7 +75,7 @@ void runGraphics (/*MPI_Comm & comm*/)
 
     altitude.initialize();
     size = altitude.getCoordinates().nCols * altitude.getCoordinates().nRows;
-    temp= new float[size];
+    temp= new double[size];
 
     camera.Front = glm::vec3(0.0f, -1.0f,-1.0f);
     // Init GLFW
@@ -134,7 +134,7 @@ void runGraphics (/*MPI_Comm & comm*/)
     texture.setParameters(GL_REPEAT, GL_REPEAT,GL_NEAREST, GL_NEAREST);
 
 
-    float* vertices = altitude.getVBOVertices();
+    double* vertices = altitude.getVBOVertices();
 
     cout<<pointLight<<endl;
 
@@ -150,23 +150,23 @@ void runGraphics (/*MPI_Comm & comm*/)
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, altitude.getSizeVBO()*sizeof(float), vertices, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, altitude.getSizeVBO()*sizeof(double), vertices, GL_STREAM_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, altitude.getSizeEBO()*sizeof(unsigned int), indices, GL_STATIC_DRAW);
 
 
     // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_DOUBLE, GL_FALSE, 9 * sizeof(double), (GLvoid*)0);
     glEnableVertexAttribArray(0);
     //normals
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_DOUBLE, GL_FALSE, 9 * sizeof(double), (GLvoid*)(3 * sizeof(double)));
     glEnableVertexAttribArray(1);
     // TexCoord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (GLvoid*)(6 * sizeof(float)));
+    glVertexAttribPointer(2, 2, GL_DOUBLE, GL_FALSE, 9 * sizeof(double), (GLvoid*)(6 * sizeof(double)));
     glEnableVertexAttribArray(2);
     // red value
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (GLvoid*)(8 * sizeof(float)));
+    glVertexAttribPointer(3, 1, GL_DOUBLE, GL_FALSE, 9 * sizeof(double), (GLvoid*)(8 * sizeof(double)));
     glEnableVertexAttribArray(3);
 
     //                    if (temperature[globalIndex] != globalIndex)
@@ -248,7 +248,7 @@ void runGraphics (/*MPI_Comm & comm*/)
 
             vertices = altitude.getVBOVertices();
 
-            glBufferData(GL_ARRAY_BUFFER, altitude.getSizeVBO()*sizeof(float), vertices, GL_STREAM_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, altitude.getSizeVBO()*sizeof(double), vertices, GL_STREAM_DRAW);
 
             updated = 0;
             requestReceive= false;

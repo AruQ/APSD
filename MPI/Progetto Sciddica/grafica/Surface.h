@@ -123,7 +123,7 @@ public:
 
 
 
-    float* getVBOVertices()
+    double* getVBOVertices()
     {
         if(VBOVertices == NULL)
         {
@@ -181,17 +181,17 @@ public:
         return sizeEBO;
     }
 
-    float getMinimumAltitude ()
+    double getMinimumAltitude ()
     {
         return minimumAltitude;
     }
 
-    float getMaximumAltitude ()
+    double getMaximumAltitude ()
     {
         return maximumAltitude;
     }
 
-    void updateTemperature (float * _temperature)
+    void updateTemperature (double * _temperature)
     {
         temperature->updateColor(_temperature);
         int globalIndex =8;
@@ -212,12 +212,12 @@ protected:
 
     Coordinates coordsAltitude;
 
-    float * VBOVertices;
+    double * VBOVertices;
     int sizeVBO;
     int sizeEBO;
 
-    float minimumAltitude;
-    float maximumAltitude;
+    double minimumAltitude;
+    double maximumAltitude;
 
     Temperature* temperature;
 
@@ -393,9 +393,9 @@ protected:
 
 
 
-    float averageNeighbourhood(const int i, const int j)
+    double averageNeighbourhood(const int i, const int j)
     {
-        float sum = 0.0f;
+        double sum = 0.0f;
         int cout_cells = 0;
         for (int _i = -1; _i <= 0; ++_i) {
             for (int _j = -1; _j <= 0; ++_j) {
@@ -500,7 +500,7 @@ protected:
         {
             for (int j = 0; j < coordsAltitude.nCols; ++j)
             {
-                texCoords[i][j] = glm::vec2((float)i/coordsAltitude.nRows,(float) j/coordsAltitude.nCols);
+                texCoords[i][j] = glm::vec2((double)i/coordsAltitude.nRows,(double) j/coordsAltitude.nCols);
 
             }
 
@@ -540,7 +540,7 @@ protected:
             sizeVBO = coordsAltitude.nRows * coordsAltitude.nCols * 9;
         else
             sizeVBO = coordsAltitude.nRows * coordsAltitude.nCols * 8;
-        VBOVertices = new float [sizeVBO];
+        VBOVertices = new double [sizeVBO];
 
         int globalIndex = 0;
         int colorIndex=0;

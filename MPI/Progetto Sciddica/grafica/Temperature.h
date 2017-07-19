@@ -32,7 +32,7 @@ public:
         coords.nRows = nRows+1;
 
         size = coords.nCols * coords.nRows;
-        temperatureColor = new float [size];
+        temperatureColor = new double [size];
 
 //        updateColor(this->getDataLinear());
         computeColor();
@@ -55,7 +55,7 @@ public:
 
     }
 
-    float* getColors()
+    double* getColors()
     {
         return temperatureColor;
     }
@@ -73,7 +73,7 @@ public:
 
 
 
-    void updateColor (float* temperature)
+    void updateColor (double* temperature)
     {
         //x' = x - min / (max-min)
 
@@ -99,10 +99,10 @@ public:
 
 
 protected:
-    float* temperatureColor;
+    double* temperatureColor;
 
-    float minimum;
-    float maximum;
+    double minimum;
+    double maximum;
 
     Coordinates coords;
     size_t size;
@@ -154,7 +154,7 @@ protected:
         //x' = x - min / (max-min)
         int globalIndex = 0;
 
-        float * tmp = this->getDataLinear();
+        double * tmp = this->getDataLinear();
         for (int i = 0; i < nRows; ++i) {
             for (int j = 0; j < nCols; ++j) {
                 if (tmp[i*nCols+j] != data[i][j])
@@ -162,7 +162,7 @@ protected:
             }
         }
 
-//        float* tmp = getDataLinear();
+//        double* tmp = getDataLinear();
         for (int i = 0; i < coords.nRows; ++i) {
             for (int j = 0; j < coords.nCols; ++j) {
                 if (i>=nRows || j>= nCols || data[i][j] == 0.0f)
@@ -177,7 +177,7 @@ protected:
     }
 
 
-    void updateMinMax (float* temperature)
+    void updateMinMax (double* temperature)
     {
 
         bool first = false;
