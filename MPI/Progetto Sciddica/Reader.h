@@ -43,10 +43,11 @@ public:
         ifstream myfile (path);
         int i = 0;
         int row=0;
+        nRows = 0;
 
         if (myfile.is_open())
         {
-            while ( getline (myfile,line) )
+            while ( getline (myfile,line) && i < nRows+6)
             {
 
                 vector<string> sep = split(line, ' ');
