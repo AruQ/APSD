@@ -38,9 +38,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void Do_Movement();
 
 
-//LightProperties
-Intensity intensity = Intensity (glm::vec3 (0.7f, 0.7f, 0.7f),glm::vec3 (0.9f, 0.9f, 0.9f),glm::vec3(1.0f, 1.0f, 1.0f) );
-PointLight pointLight = PointLight(1,glm::vec4(0.0f, 0.0f, -1.0f,1.0f),1.0f, 0.00014,0.0000007, intensity);
+
 
 // Camera
 Camera camera(glm::vec3(0.0f, 0.0f, -1.0f));
@@ -136,7 +134,6 @@ void runGraphics (/*MPI_Comm & comm*/)
 
     double* vertices = altitude.getVBOVertices();
 
-    cout<<pointLight<<endl;
 
 
     unsigned int* indices = altitude.getEBO();
@@ -169,8 +166,6 @@ void runGraphics (/*MPI_Comm & comm*/)
     glVertexAttribPointer(3, 1, GL_DOUBLE, GL_FALSE, 9 * sizeof(double), (GLvoid*)(8 * sizeof(double)));
     glEnableVertexAttribArray(3);
 
-    //                    if (temperature[globalIndex] != globalIndex)
-    //                        cout<<temperature[globalIndex]<<" ";
 
 
     glBindVertexArray(0); // Unbind VAO
@@ -199,10 +194,6 @@ void runGraphics (/*MPI_Comm & comm*/)
 
         shader.Use();   // <-- Don't forget this one!
 
-        //        pointLight.setPosition(camera.Position);
-        pointLight.setPosition(camera.Position);
-
-        pointLight.SetUniformData(&shader,"light");
 
         // Transformation matrices
         glm::mat4 projection = glm::perspective(camera.Zoom, (float)screenWidth/(float)screenHeight, 0.1f, 40000.0f);
