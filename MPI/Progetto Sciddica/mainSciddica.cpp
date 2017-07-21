@@ -5,6 +5,7 @@
 #include <string.h>
 #include <cmath>
 #include "Reader.h"
+#include <omp.h>
 
 #include <unistd.h>
 #include "grafica/main.cpp"
@@ -20,7 +21,7 @@
 #define MPI_root 0
 
 
-enum HALO_TYPE{UP=0,DOWN,LEFT,RIGHT};
+enum HALO_TYPE{UP=0,LEFT,RIGHT,DOWN};//ERRORE
 
 
 struct InfoBlock
@@ -54,13 +55,14 @@ private:
     static int ID;
     const int neighborhoodPattern[SIZE_OF_NEIGHBORHOOD][2]=
     {{0,0},{-1,0},{0,-1}, {0,1},{1,0}}; //CONTROLARE ORDINE
+    //    const int neighborhoodPattern[SIZE_OF_NEIGHBORHOOD][2]=
+    //    {{0,0},{1,0},{-1,0}, {0,1},{0,-1}}; //CONTROLARE ORDINE
     double * current;
     double * next;
     int size;
     InfoBlock* infoBlock;
     InfoHalo infoSendHalo;
     InfoHalo infoRecvHalo;
-    unsigned int myid;
 
     MPI_Datatype MPI_VERTICAL_BORDER;
     MPI_Datatype MPI_HORIZONTAL_BORDER;
@@ -69,9 +71,10 @@ private:
 
 
 
-    double * halos[4];
 
 public:
+    unsigned int myid;
+    double * halos[4];
 
     Substate(InfoBlock* infoBlock)
     {
@@ -182,7 +185,7 @@ public:
 
     bool get(int i,int j,  double & val)
     {
-        if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
+        if (i>=0 && i<infoBlock->size_y && j>=0 && j<infoBlock->size_x) //ERRORE
         {
             val= current [i*infoBlock->size_x + j];
             return true;
@@ -225,19 +228,31 @@ public:
     bool getX(int i, int j, int n, double & val)
     {
 
-        if (n>4)
+
+        if (n>SIZE_OF_NEIGHBORHOOD)
             return false;
         int newI = i+neighborhoodPattern[n][0];
         int newJ = j+neighborhoodPattern[n][1];
         if (get(newI, newJ, val)) //se il vicino si trova nella sottomatrice
         {
+
             return true;
         }
-        if(halos[n]== NULL) //se il vicino è fuori dai bordi
+        if(halos[n-1]== NULL) //se il vicino è fuori dai bordi
         {
+            //                        if(infoBlock->rank==6)
+            //                            cout<<" ora rispondo io "<<endl;
             return false;
         }
-        val= halos[n][j]; //assegna il valore
+        if (n-1 == UP || n-1 == DOWN)
+            val= halos[n-1][j]; //assegna il valore
+        if (n-1 == LEFT || n-1 == RIGHT)
+        {
+            val= halos[n-1][i]; //assegna il valore
+//            if(infoBlock->rank==6 && n == 4 )
+//                //                if(val != 0.0)
+//                cout<<"con rank "<<infoBlock->rank<< " voglio il bordo "<<n<<" e val è "<<val<<endl;
+        }
         return true;
 
     }
@@ -246,7 +261,7 @@ public:
     bool getNextX(int i, int j, int n, double & val)
     {
 
-        if (n>4)
+        if (n>SIZE_OF_NEIGHBORHOOD)
             return false;
         int newI = i+neighborhoodPattern[n][0];
         int newJ = j+neighborhoodPattern[n][1];
@@ -254,11 +269,18 @@ public:
         {
             return true;
         }
-        if(halos[n]== NULL) //se il vicino è fuori dai bordi
+        if(halos[n-1]== NULL) //se il vicino è fuori dai bordi
         {
             return false;
         }
-        val= halos[n][j]; //assegna il valore
+        if (n-1 == UP || n-1 == DOWN)
+        {
+            val= halos[n-1][j]; //assegna il valore
+            //            if (infoBlock->rank == 7 && n-1==0)
+            //                cout<<"eccoti "<<val<<endl;
+        }
+        if (n-1 == LEFT || n-1 == RIGHT)
+            val= halos[n-1][i]; //assegna il valore
         return true;
 
     }
@@ -291,6 +313,27 @@ public:
     }
 
 
+    bool setCurrent (int i, int j, double val)
+    {
+        if (i>=0 && i<infoBlock->size_y && j>=0 && infoBlock->size_x)
+        {
+            current [i*infoBlock->size_x + j]= val;
+            return true;
+        }
+        return false;
+    }
+
+    bool setCurrent (int i,double val)
+    {
+        if (i>=0 && i<infoBlock->size_y *infoBlock->size_x)
+        {
+            current [i]= val;
+            return true;
+        }
+        return false;
+    }
+
+
 
     void block_receiving( MPI_Comm & MPI_COMM_CUBE, int tag)
     {
@@ -304,17 +347,26 @@ public:
     void send_halos(MPI_Comm & MPI_COMM_CUBE)
     {
 
-        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoSendHalo.neighbor[0], &infoSendHalo.neighbor[1]);
-        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoSendHalo.neighbor[2], &infoSendHalo.neighbor[3]);
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoSendHalo.neighbor[UP], &infoSendHalo.neighbor[DOWN]);
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoSendHalo.neighbor[LEFT], &infoSendHalo.neighbor[RIGHT]);
 
 
-        int starterIndex [4] = {0, (infoBlock->size_y-1)*infoBlock->size_x, 0,infoBlock->size_x-1};
+        int starterIndex [4] = {0,0,infoBlock->size_x-1,(infoBlock->size_y-1)*infoBlock->size_x};
         for (int i = 0; i < 4; ++i) {
             //            cout<<infoSendHalo.neighbor[i]<<endl;
 
             if (infoSendHalo.neighbor[i] != -1)
             {
                 int tag = myid+myid*i+infoSendHalo.neighbor[i];
+                //                if (infoBlock->rank == 2)
+                //                {
+
+                //                        cout<<"sono io "<<infoBlock->rank<<" e mando a i= "<<i <<"che è "<<infoRecvHalo.neighbor[i]<<endl;
+                //                        cout<<"a partire da "<<starterIndex[i]<<endl;
+                //                        cout<<"e il tag è "<<tag <<endl;
+
+
+                //                }
 
                 if (i ==UP || i == DOWN)
                     MPI_Isend(&current[starterIndex[i]],1,MPI_HORIZONTAL_BORDER,infoSendHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoSendHalo.requests[i]);
@@ -326,23 +378,37 @@ public:
         }
     }
 
-
-
     void recv_halos(MPI_Comm & MPI_COMM_CUBE)
     {
-        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoRecvHalo.neighbor[0], &infoRecvHalo.neighbor[1]);
-        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoRecvHalo.neighbor[2], &infoRecvHalo.neighbor[3]);
-
-
-
+        MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &infoRecvHalo.neighbor[UP], &infoRecvHalo.neighbor[DOWN]);
+        MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &infoRecvHalo.neighbor[LEFT], &infoRecvHalo.neighbor[RIGHT]);
 
         for (int i = 0; i < 4; ++i) {
 
 
-            if (infoSendHalo.neighbor[i] != -1)
+            if (infoRecvHalo.neighbor[i] != -1)
             {
-                int sender = (i%2==0? i+1:i-1);
+                int sender;
+                if (i == UP)
+                    sender = DOWN;
+                else if (i == DOWN)
+                    sender = UP;
+                else if (i == RIGHT)
+                    sender = LEFT;
+                else if (i == LEFT)
+                    sender = RIGHT;
                 int tag = myid+myid*sender+infoBlock->rank;
+                //                if (infoBlock->rank == 3)
+                //                {
+
+                //                        cout<<"sono io "<<infoBlock->rank<<" e salvo in i= "<<i <<" da "<<infoRecvHalo.neighbor[i]<<endl;
+                //                        cout<<"e il tag è "<<tag <<endl;
+
+
+
+                //                }
+
+                //                int sender = (i%2==0? i+2:i-2);
 
                 MPI_Irecv(halos[i],infoBlock->size_x,MPI_DOUBLE,infoRecvHalo.neighbor[i],tag,MPI_COMM_CUBE,&infoRecvHalo.requests[i]);
 
@@ -441,6 +507,7 @@ int Substate::ID =10;
 
 #define NUMBER_OF_OUTFLOWS 4
 
+
 class CellularAutomata
 {
 private:
@@ -488,20 +555,26 @@ public:
         double z,h;
 
         double valDebrid,valAlt;
-        debrids.get(i,j,valDebrid);
-        if(valDebrid <= epsilon)
-            return;
+        if (debrids.get(i,j,valDebrid))
+            if(valDebrid <= epsilon)
+            {
+                return;
+            }
+
 
         m = valDebrid - epsilon;
-        altitude.get(i,j,valAlt);
-        u[0] = valAlt + epsilon;
+        if (altitude.get(i,j,valAlt)) //ERRORE
+            u[0] = valAlt + epsilon;
 
         for (n=1; n<SIZE_OF_NEIGHBORHOOD ; n++)
         {
-            debrids.getX(i,j,n,h);
-            altitude.getX(i,j,n,z);
-            u[n] = z + h;
-//            cout <<"u[n] "<< u[n]<<endl;
+            if(debrids.getX(i,j,n,h) && altitude.getX(i,j,n,z)) //ERRORE
+            {
+                u[n] = z + h;
+            }
+            //            if (infoBlock->rank == 7 && u[n] != 0.0)
+
+            //                cout <<"u[n] "<< u[n]<<endl;
         }
         do{
             again = false;
@@ -522,23 +595,23 @@ public:
                 if( average<=u[n] && !eliminated_cells[n] ){
                     eliminated_cells[n]=true;
                     again=true;
-//                    cout<<"average"<<average<<endl;
+                    //                    cout<<"average"<<average<<endl;
                 }
         }while (again);
 
         for (n=1; n<SIZE_OF_NEIGHBORHOOD ; n++)
             if (eliminated_cells[n])
             {
-                f[n-1].set(i,j,0.0);
+                f[n-1].setCurrent(i,j,0.0);
             }
             else
             {
-                f[n-1].set(i,j,(average-u[n])*r);
-//                cout << "------------"<<(average-u[n])*r<<endl;
-//                double tmp;
-//                f[n-1].get(i,j,tmp);
-//                if(tmp!=0)
-//                                cout << "------------"<<tmp<<endl;
+                f[n-1].setCurrent(i,j,(average-u[n])*r);
+                //                cout << "------------"<<(average-u[n])*r<<endl;
+                double tmp;
+                f[n-1].get(i,j,tmp);
+                //                                if(tmp!=0.0)
+                //                                                cout << "------------"<<infoBlock->rank<<endl;
             }
 
     }
@@ -552,49 +625,118 @@ public:
         double outFlows[2];
         for(n=1; n< SIZE_OF_NEIGHBORHOOD ; n++)
         {
-            f[NUMBER_OF_OUTFLOWS - n].getNextX(i,j,n, outFlows[0]);
-            f[n-1].getNext(i,j, outFlows[1]);
-            h_next += outFlows[0]-outFlows[1];
+            if(f[NUMBER_OF_OUTFLOWS - n].getX(i,j,n, outFlows[0])) //ERRORE
+            {
+                if(f[n-1].get(i,j, outFlows[1]))
+                {
+                    //                    if (infoBlock->rank == 7 )
+                    //                    {
+                    //                        if (outFlows[0] != 0)
+                    //                            cout<<"sto leggendo "<<infoBlock->rank<<" f di "<<NUMBER_OF_OUTFLOWS - n<< " e vicinato pari a "<<n<<endl;
+                    //                    }
+                    h_next += outFlows[0]-outFlows[1];
+                }
+            }
+
         }
-//        h_next += delta;
-//        double tmp;
-//        debrids.get(i,j,tmp);
-//        static int count = 0;
-//        if(tmp == h_next && tmp != 0)
-//        {
-//            cout <<"tmp "<< tmp << " h_next "<<h_next<<endl;
-//            count++;
-//            cout<<"couunt "<<count <<" rank "<<infoBlock->rank<<endl;
-//        }
+
+
         debrids.set(i,j,h_next);
     }
 
     void transitionFunction (MPI_Comm & MPI_COMM_CUBE)
     {
-//        srand(time(NULL));
-//        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
-//            DOUBLE val= 0.0f;
-//            int _rand = rand() % 10;
-//            debrids.get(i,val);
-//            val=20.0f*_rand;
-//            debrids.set(i,val);
-//        }
 
-                for (int i = 0; i < infoBlock->size_y; ++i) {
-                    for(int j=0;j< infoBlock->size_x;j++)
-                    {
-                        flowsComputation(i,j);
-                    }
+        //        srand(time(NULL));
+        //        for (int i = 0; i < infoBlock->size_x * infoBlock->size_y; ++i) {
+        //            double val= 0.0f;
+        //            int _rand = rand() % 10;
+        //            debrids.get(i,val);
+        //            val++;
+        //            debrids.set(i,val);
+        //        }
 
-                }
 
-                for (int i = 0; i < infoBlock->size_y; ++i) {
-                    for(int j=0;j< infoBlock->size_x;j++)
-                    {
-                        widthUpdate(i,j);
-                    }
+        for (int i = 0; i < infoBlock->size_y; ++i) {
+            for(int j=0;j< infoBlock->size_x;j++)
+            {
+                flowsComputation(i,j);
+            }
 
-                }
+        }
+
+        for(int i = 0; i<4; i++)
+        {
+            f[i].send_halos(MPI_COMM_CUBE);
+            f[i].recv_halos(MPI_COMM_CUBE);
+
+        }
+
+        for(int i = 0; i<4; i++) //ERRORONE MAMMA MIA CHE STO PASSANDO
+        {
+            sendCompleted(&f[i]);
+            recvCompleted(&f[i]);
+
+//            if (infoBlock->rank == 6)
+//            {
+//                for(int j = 0; j< infoBlock->size_x; j++)
+//                {
+//                    if (f[i].halos[RIGHT][j] != 0.0)
+//                    {
+//                        cout<<"sono stato riepito con "<<f[i].halos[RIGHT][j]<<" e sono "<<i<<endl;
+//                    }
+//                }
+//            }
+        }
+
+        for (int i = 0; i < infoBlock->size_y; ++i) {
+            for(int j=0;j< infoBlock->size_x;j++)
+            {
+                //                cout<<infoBlock->size_x<<" "<<infoBlock->size_y<<endl;
+                widthUpdate(i,j);
+            }
+
+        }
+        //                for (int var = 0; var < infoBlock->size_x; ++var) {
+        //                    //            for (int n = 0; n < 4; ++n) {
+        //                    //                if(debrids.halos[n] != NULL)
+        //                    debrids.set(0,var,1000.0);
+
+
+        //                }
+
+        //        if (infoBlock->rank == 3)
+        //        {
+        //        for (int i = 0; i < infoBlock->size_x; ++i) {
+
+        //            debrids.set(infoBlock->size_y-1,i,1000.0);
+        //            debrids.set(i,infoBlock->size_y-1,1000.0);
+
+
+        //        }
+
+        //        for(int i = 0; i< infoBlock->size_x; i++)
+        //        {
+        //            for (int j = 0; j < infoBlock->size_y; ++j) {
+        //                double val;
+        //                debrids.get(i,j,val);
+        //                if(val>= 1000.0)
+        //                {
+
+        //                    //                    cout<<"setto a "<<i<< "   "<<j<<" il val " <<val+1<<endl;
+        //                    debrids.set(i,j,val+1);
+        //                }
+        //            }
+        //        }
+
+        //        for (int i = 0; i < infoBlock->size_x; ++i) {
+
+        //            debrids.set(0,i,1000.0);
+        //            debrids.set(i,0,1000.0);
+
+
+        //        }
+        //        }
 
     }
 
@@ -638,14 +780,14 @@ public:
 
         //        //        sendCompleted(&debrids);
         recvCompleted(&debrids);
-//        usleep(1000000);
-//        if(infoBlock->rank != MPI_root)
-//            debrids.send_back_data(MPI_COMM_CUBE);
-//        else
-//            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
+        //        usleep(1000000);
+        //        if(infoBlock->rank != MPI_root)
+        //            debrids.send_back_data(MPI_COMM_CUBE);
+        //        else
+        //            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
 
-//        cout<<endl;
-//        return;
+        //        cout<<endl;
+        //        return;
 
         while(step < STEPS)
         {
@@ -669,8 +811,29 @@ public:
                     debrids.send_back_data(MPI_COMM_CUBE);
                 else
                     receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
-                usleep(100000);
             }
+
+//            if (infoBlock->rank == 7)
+//            {
+//                for (int i = 0; i < infoBlock->size_x; ++i) {
+//                    if (debrids.halos[0][i] != 0.0)
+//                    {
+//                        double val;
+//                        if(debrids.getX(0,i,1,val))
+//                        {
+//                            //                        cout<<"è arrivato qualcosa!!! "<<step<<endl;
+//                            if (val != 0.0)
+//                            {
+//                                //                                cout<<" lo step è "<<step<<" val è "<<val<<endl;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+
+
+
+            //            usleep(90000);
             step++;
 
 
@@ -679,7 +842,14 @@ public:
         //            debrids.send_back_data(MPI_COMM_CUBE);
         //        else
         //            receive_data_back(infoBlock, data,size_x,debrids.getCurrent());
-        //        debrids.stampaHalos();
+        //                                debrids.stampaHalos();
+
+        //        double val;
+        //        if (debrids.getX(0,0,1, val))
+        //            cout<<"sono rank "<<infoBlock->rank<<" e il val è "<<val <<endl;
+
+
+        //        cout<<debrids<<endl;
     }
 
 
@@ -754,6 +924,8 @@ void stampa (InfoBlock infoBlock,int rank)
     printf("size_col %d size_row %d \n\n", infoBlock.size_x, infoBlock.size_y);
 }
 
+void aggiungi_bordo (InfoBlock* infoBlock, double * data, int size_x);
+
 void block_distribution (InfoBlock& infoBlock,unsigned int size_x, unsigned int size_y,int numprocs);
 
 void block_sending(double* data, InfoBlock * infoBlock, int num_procs,int size_x, MPI_Datatype & MPI_BLOCK_TYPE, MPI_Comm & MPI_COMM_CUBE, int tag);
@@ -796,6 +968,11 @@ int main(int argc, char *argv[])
     /* Get the number of processes created by MPI and their rank */
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    omp_set_num_threads(8);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start = MPI_Wtime();
     num_procs--;
 
     //    int MPI_root = 0; /////////////ATTENZIONE ROOT PRIMA ERA numprocs-1
@@ -814,10 +991,12 @@ int main(int argc, char *argv[])
         //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
         MPI_Cart_rank(MPI_COMM_CUBE, cart_coordinates, &rank);
         MPI_Cart_shift(MPI_COMM_CUBE, VERTICAL, 1, &neighbor_up, &neighbor_down);
-        //    printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
+        //            printf("rank %d : %d cciao %d \n", rank, cart_coordinates[0], cart_coordinates[1]);
         //    printf("rank %d : up %d down %d \n", rank, neighbor_up, neighbor_down);
 
         MPI_Cart_shift(MPI_COMM_CUBE, HORIZONTAL, 1, &neighbor_left, &neighbor_right);
+
+
     }
 
 
@@ -851,8 +1030,9 @@ int main(int argc, char *argv[])
         //        MPI_Recv(&reader.getRows(), 1, MPI_INT, MPI_root, 0, MPI_COMM_CUBE, &status);
     }
 
-    block_distribution(infoBlock, readerZ.nCols, readerZ.nRows,num_procs);
-    //        stampa(infoBlock, rank);
+    if(rank!=num_procs)
+        block_distribution(infoBlock, readerZ.nCols, readerZ.nRows,num_procs);
+    //    stampa(infoBlock, rank);
 
     CellularAutomata sciddica (&infoBlock);
     if(rank==MPI_root)
@@ -864,9 +1044,14 @@ int main(int argc, char *argv[])
 
     if (rank == MPI_root)
     {
+
+        //        double * buffer = readerH.getDataLinear();
+        //        aggiungi_bordo(&infoBlock,buffer,readerZ.nCols);
+
         block_sending(readerZ.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_COMM_CUBE,0);
         block_sending(readerH.getDataLinear(),&infoBlock,num_procs,readerZ.nCols,MPI_BLOCK_TYPE,MPI_COMM_CUBE,1);
         sciddica.initRoot(readerZ.getDataLinear(),readerH.getDataLinear(), readerZ.nCols);
+
 
     }
     if (rank != MPI_root)
@@ -887,7 +1072,15 @@ int main(int argc, char *argv[])
         MPI_Barrier (MPI_COMM_CUBE);
 
     if(rank!=num_procs)
+    {
+
+
         sciddica.run(totalSteps,stepOffset,MPI_COMM_CUBE);
+        MPI_Barrier (MPI_COMM_CUBE);
+        double end = MPI_Wtime();
+
+        cout<<"Tempo :"<<end-start<<endl;
+    }
 
 
     if (rank == num_procs)
@@ -895,12 +1088,9 @@ int main(int argc, char *argv[])
         runGraphics();
     }
 
-    //    sciddica.transitionFunction(MPI_COMM_CUBE);
-
-
-    //    block_sending(reader, infoBlock, MPI_BLOCK_TYPE, size);
 
     //TODO CREARE BLOCCHI PER OGNI PROCESSO
+
 
     MPI_Finalize();
 
@@ -993,6 +1183,35 @@ void block_sending(double* data,InfoBlock * infoBlock, int num_procs, int size_x
 
 }
 
+void aggiungi_bordo (InfoBlock* infoBlock, double * data, int size_x)
+{
+    for (int i = 0; i< infoBlock->cart_dimensions[0]; i++)
+    {
+        for (int j = 0; j < infoBlock->cart_dimensions[1]; ++j) {
+            int newI = (i+1)*infoBlock->size_x;
+            //            cout<<"la nuova i è "<<newI<<endl;
+            for (int k = 0; k < size_x; ++k) {
+                data[newI*size_x+k]= 1000.0;
+
+            }
+
+        }
+    }
+
+    for (int i = 0; i< infoBlock->cart_dimensions[0]; i++)
+    {
+        for (int j = 0; j < infoBlock->cart_dimensions[1]; ++j) {
+            int newJ = (j+1)*infoBlock->size_x;
+            //            cout<<"la nuova i è "<<newI<<endl;
+            for (int k = 0; k < size_x; ++k) {
+                data[k*size_x+newJ]= 1000.0;
+
+            }
+
+        }
+    }
+}
+
 
 void receive_data_back(InfoBlock* infoBlock,double* data, int size_x,double* local_root_data)
 {
@@ -1022,21 +1241,26 @@ void receive_data_back(InfoBlock* infoBlock,double* data, int size_x,double* loc
         starterIndex=infoBlock->first_y*size_x + infoBlock->first_x +(size_x*(i+1));
     }
 
-//    cout<<"size_x"<<size_x<<endl;
-//        for(int i =0;i<size_x*size_x;i++){
+    //                cout<<"size_x"<<size_x<<endl;
+    //                    for(int i =0;i<size_x*size_x;i++){
 
-//            cout<< data[i] << " ";
-//            if((i+1)%size_x==0)
-//                cout << endl;
-//        }
+    //                        cout<< data[i] << " ";
+    //                        if((i+1)%size_x==0)
+    //                            cout << endl;
+    //                    }
 
-//    cout<<"size_x"<<size_x<<endl;
-//           for(int i =0;i<610*610;i++){
+    //        cout<<"size_x"<<size_x<<endl;
+    //               for(int i =0;i<610*610;i++){
 
-//               cout<< i << " ";
-//               if((i+1)%610==0)
-//                   cout << endl;
-//           }
+    //                   cout<< i << " ";
+    //                   if((i+1)%610==0)
+    //                       cout << endl;
+    //               }
+
+//    aggiungi_bordo(infoBlock,data, size_x);
+
+
+    cout<<"MANDO"<<endl;
     MPI_Request r;
     MPI_Isend(data,size_x*size_x,MPI_DOUBLE,infoBlock->numprocs,314,MPI_COMM_WORLD,&r);
 
