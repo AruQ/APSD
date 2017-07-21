@@ -26,7 +26,6 @@ public:
         setMin();
         setMax();
 
-        cout<<"max = "<<maximum << "min= "<<minimum<<endl;
 
         coords.nCols = nCols+1;
         coords.nRows = nRows+1;

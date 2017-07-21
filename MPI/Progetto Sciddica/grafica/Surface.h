@@ -127,7 +127,6 @@ public:
     {
         if(VBOVertices == NULL)
         {
-            cout<<"sono arrivato "<<endl;
             createMatrixAltitude();
             setMinMaxVertices();
 
@@ -140,7 +139,6 @@ public:
             generateVBO();
 
 
-            cout<<"sono maxium altitude "<< maximumAltitude<<endl;
         }
         return VBOVertices;
     }

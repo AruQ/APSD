@@ -58,7 +58,7 @@ double * temp;
 MPI_Request req;
 
 
-void receive (/*MPI_Comm & comm*/)
+void receive ()
 {
     MPI_Irecv(temp, size, MPI_DOUBLE, 0, 314, MPI_COMM_WORLD, &req);
     requestReceive = true;
@@ -215,25 +215,18 @@ void runGraphics (/*MPI_Comm & comm*/)
         if (!requestReceive)
         {
 
-            receive(/*comm*/);
+            receive();
             updated = 0;
-            cout<<"aggiorno "<<endl;
         }
 
         if (updated == 0)
         {
-
             MPI_Status st;
             MPI_Test(&req,&updated,&st);
-            if(updated == 1)
-            {
-                cout <<"test: "<< updated<<endl;
-            }
         }
 
         if (updated==1)
         {
-            cout<<"aggiorno il valori della temperatura e li passo al VBO"<<endl;
             altitude.updateTemperature(temp);
 
 
